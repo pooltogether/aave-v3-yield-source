@@ -21,6 +21,7 @@ const config: HardhatUserConfig = {
     runOnCompile: true,
     clear: true,
     flat: true,
+    except: ['@aave/core-v3/contracts/dependencies/openzeppelin/contracts/IERC20.sol:IERC20'],
   },
   typechain: {
     outDir: 'types',
@@ -46,13 +47,13 @@ const config: HardhatUserConfig = {
   },
   networks,
   solidity: {
-    version: '0.8.6',
+    version: '0.8.10',
     settings: {
       optimizer: {
         enabled: optimizerEnabled,
         runs: 200,
       },
-      evmVersion: 'istanbul',
+      evmVersion: 'london',
     },
   },
 };
