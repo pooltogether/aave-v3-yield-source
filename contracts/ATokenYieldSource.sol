@@ -253,28 +253,6 @@ contract ATokenYieldSource is ERC20, IYieldSource, Manageable, ReentrancyGuard {
   }
 
   /**
-   * @notice Supplies asset tokens to the yield source.
-   * @dev Shares corresponding to the number of tokens supplied are minted to the user's balance
-   * @dev Asset tokens are supplied to the yield source, then deposited into Aave
-   * @param _mintAmount The amount of asset tokens to be supplied
-   * @param _to The user whose balance will receive the tokens
-   * @param _permitSignature Permit signature
-   */
-  function supplyTokenToWithPermit(
-    uint256 _mintAmount,
-    address _to,
-    Signature calldata _permitSignature
-  ) external nonReentrant {
-    uint256 _shares = _tokenToShares(_mintAmount);
-
-    require(_shares > 0, "ATokenYS/shares-gt-zero");
-    _supplyToAaveWithPermit(_mintAmount, _permitSignature);
-    _mint(_to, _shares);
-
-    emit SuppliedTokenTo(msg.sender, _shares, _mintAmount, _to);
-  }
-
-  /**
    * @notice Redeems asset tokens from the yield source.
    * @dev Shares corresponding to the number of tokens withdrawn are burnt from the user's balance.
    * @dev Asset tokens are withdrawn from Aave, then transferred from the yield source to the user's wallet.

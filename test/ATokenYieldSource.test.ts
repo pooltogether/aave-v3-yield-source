@@ -89,48 +89,6 @@ describe('ATokenYieldSource', () => {
     await aTokenYieldSource.connect(user).supplyTokenTo(amount, userAddress);
   };
 
-  const supplyTokenToWithPermit = async (
-    user: SignerWithAddress,
-    amount: BigNumber,
-    aTokenTotalSupply: BigNumber,
-  ) => {
-    const tokenAddress = await aTokenYieldSource.tokenAddress();
-    const userAddress = user.address;
-
-    await usdcToken.mint(userAddress, amount);
-
-    const signature = await permitSignature({
-      permitToken: tokenAddress,
-      fromWallet: user,
-      spender: aTokenYieldSource.address,
-      amount,
-      provider,
-    });
-
-    await pool.mock.supplyWithPermit
-      .withArgs(
-        tokenAddress,
-        amount,
-        aTokenYieldSource.address,
-        REFERRAL_CODE,
-        signature.deadline,
-        signature.v,
-        signature.r,
-        signature.s,
-      )
-      .returns();
-
-    // aTokenTotalSupply should never be 0 since we mint shares to the user after depositing in Aave
-    await aToken.mock.balanceOf.withArgs(aTokenYieldSource.address).returns(aTokenTotalSupply);
-
-    await aTokenYieldSource.connect(user).supplyTokenToWithPermit(amount, userAddress, {
-      deadline: signature.deadline,
-      v: signature.v,
-      r: signature.r,
-      s: signature.s,
-    });
-  };
-
   const sharesToToken = async (shares: BigNumber, yieldSourceTotalSupply: BigNumber) => {
     const totalShares = await aTokenYieldSource.callStatic.totalSupply();
 
@@ -442,45 +400,6 @@ describe('ATokenYieldSource', () => {
 
       await expect(
         aTokenYieldSource.supplyTokenTo(amount, aTokenYieldSource.address),
-      ).to.be.revertedWith('');
-    });
-  });
-
-  describe('supplyTokenToWithPermit()', () => {
-    let amount: BigNumber;
-    let tokenAddress: any;
-
-    beforeEach(async () => {
-      amount = toWei('100');
-      tokenAddress = await aTokenYieldSource.tokenAddress();
-    });
-
-    it('should supply assets if totalSupply is 0', async () => {
-      await supplyTokenToWithPermit(yieldSourceOwner, amount, amount);
-      expect(await aTokenYieldSource.totalSupply()).to.equal(amount);
-    });
-
-    it('should supply assets if totalSupply is not 0', async () => {
-      await supplyTokenToWithPermit(yieldSourceOwner, amount, amount);
-      await supplyTokenToWithPermit(wallet2, amount, amount.mul(2));
-      expect(await aTokenYieldSource.totalSupply()).to.equal(amount.add(amount.div(2)));
-    });
-
-    it('should revert on error', async () => {
-      const signature = await permitSignature({
-        permitToken: tokenAddress,
-        fromWallet: yieldSourceOwner,
-        spender: aTokenYieldSource.address,
-        amount,
-        provider,
-      });
-
-      await pool.mock.deposit
-        .withArgs(tokenAddress, amount, aTokenYieldSource.address, REFERRAL_CODE)
-        .reverts();
-
-      await expect(
-        aTokenYieldSource.supplyTokenToWithPermit(amount, aTokenYieldSource.address, signature),
       ).to.be.revertedWith('');
     });
   });
