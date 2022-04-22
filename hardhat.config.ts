@@ -11,7 +11,9 @@ import 'solidity-coverage';
 
 import { HardhatUserConfig } from 'hardhat/config';
 
+import { external } from './hardhat.config.dependencies';
 import networks from './hardhat.network';
+import * as forkTasks from './scripts/fork';
 
 const optimizerEnabled = !process.env.OPTIMIZER_DISABLED;
 
@@ -45,6 +47,7 @@ const config: HardhatUserConfig = {
       default: 0,
     },
   },
+  external,
   networks,
   solidity: {
     version: '0.8.10',
@@ -57,5 +60,7 @@ const config: HardhatUserConfig = {
     },
   },
 };
+
+forkTasks;
 
 export default config;

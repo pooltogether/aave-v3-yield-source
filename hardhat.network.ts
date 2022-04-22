@@ -26,6 +26,7 @@ if (alchemyUrl && process.env.FORK_ENABLED && mnemonic) {
     accounts: {
       mnemonic,
     },
+    allowUnlimitedContractSize: true,
   };
 } else {
   networks.hardhat = {

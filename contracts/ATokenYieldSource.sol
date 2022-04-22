@@ -359,7 +359,7 @@ contract ATokenYieldSource is ERC20, IYieldSource, Manageable, ReentrancyGuard {
     uint256 _supply = totalSupply();
 
     // tokens = (shares * yieldSourceTotalSupply) / totalShares
-    return _supply == 0 ? _shares : _shares.wadMul(aToken.balanceOf(address(this))).wadDiv(_supply);
+    return _supply == 0 ? _shares : _shares.mul(aToken.balanceOf(address(this))).div(_supply);
   }
 
   /**
@@ -385,7 +385,7 @@ contract ATokenYieldSource is ERC20, IYieldSource, Manageable, ReentrancyGuard {
   /**
    * @notice Supply asset tokens to Aave with permit.
    * @param _mintAmount Amount of asset tokens to be supplied
-   * TODO: can maybe improve gas usage by storing permitSignature in memory
+   * @param _permitSignature Permit signature
    */
   function _supplyToAaveWithPermit(uint256 _mintAmount, Signature calldata _permitSignature)
     internal
