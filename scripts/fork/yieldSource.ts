@@ -1,9 +1,9 @@
+import ERC20 from "@openzeppelin/contracts/build/contracts/ERC20.json";
 import { subtask, task } from "hardhat/config";
 
 import { USDC_ADDRESS_POLYGON, USDC_TOKEN_DECIMALS } from "../../Constants";
 
 import { action, info, success } from "../../helpers";
-import ERC20Abi from "../../abis/ERC20.json";
 
 import { increaseTime as increaseTimeUtil } from "../../test/utils/increaseTime";
 
@@ -106,7 +106,7 @@ export default task("fork:yield-source", "Run ATokenYieldSource fork").setAction
       wallet2TicketBalance,
     });
 
-    const usdc = await getContractAt(ERC20Abi, USDC_ADDRESS_POLYGON);
+    const usdc = await getContractAt(ERC20.abi, USDC_ADDRESS_POLYGON);
     const deployerUSDCBalance = await usdc.balanceOf(deployer.address);
     const wallet2USDCBalance = await usdc.balanceOf(wallet2.address);
 
@@ -155,7 +155,7 @@ subtask("deposit-into-prize-pool", "Deposit into prize pool")
 
     const [deployer, wallet2] = await getSigners();
     const prizePool = await getContractAt("YieldSourcePrizePool", prizePoolAddress);
-    const usdcContract = await getContractAt(ERC20Abi, USDC_ADDRESS_POLYGON);
+    const usdcContract = await getContractAt(ERC20.abi, USDC_ADDRESS_POLYGON);
 
     const depositAmountDeployer = parseUnits("750", USDC_TOKEN_DECIMALS);
     await usdcContract.connect(deployer).approve(prizePoolAddress, depositAmountDeployer);

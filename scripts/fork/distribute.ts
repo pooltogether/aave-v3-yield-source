@@ -1,3 +1,4 @@
+import ERC20 from "@openzeppelin/contracts/build/contracts/ERC20.json";
 import { task } from "hardhat/config";
 
 import {
@@ -8,7 +9,6 @@ import {
 } from "../../Constants";
 
 import { action, success } from "../../helpers";
-import ERC20Abi from "../../abis/ERC20.json";
 
 export default task("fork:distribute", "Distribute Ether and USDC").setAction(
   async (taskArguments, hre) => {
@@ -21,7 +21,7 @@ export default task("fork:distribute", "Distribute Ether and USDC").setAction(
     const ethHolder = provider.getUncheckedSigner(MATIC_HOLDER_ADDRESS_POLYGON);
     const usdcHolder = provider.getUncheckedSigner(USDC_HOLDER_ADDRESS_POLYGON);
 
-    const usdcContract = await getContractAt(ERC20Abi, USDC_ADDRESS_POLYGON, usdcHolder);
+    const usdcContract = await getContractAt(ERC20.abi, USDC_ADDRESS_POLYGON, usdcHolder);
 
     const recipients: { [key: string]: string } = {
       ["Deployer"]: deployer.address,
