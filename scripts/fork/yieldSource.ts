@@ -116,6 +116,7 @@ export default task("fork:yield-source", "Run ATokenYieldSource fork").setAction
         USDC_TOKEN_DECIMALS
       )} USDC`
     );
+
     info(
       `Wallet2 USDC balance after withdrawing: ${formatUnits(
         wallet2USDCBalance,
@@ -126,6 +127,7 @@ export default task("fork:yield-source", "Run ATokenYieldSource fork").setAction
     await run("flush-reserve", { prizeFlushAddress });
 
     const prizeDistributorTicketBalance = await ticket.balanceOf(prizeDistributorAddress);
+
     info(
       `PrizeDistributor ticket balance after flush: ${formatUnits(
         prizeDistributorTicketBalance,
@@ -136,6 +138,7 @@ export default task("fork:yield-source", "Run ATokenYieldSource fork").setAction
     const aUSDCYieldSourceBalanceAfterFlush = await aaveUsdcYieldSource.callStatic.balanceOfToken(
       prizePoolAddress
     );
+
     info(
       `ATokenYieldSource aUSDC balance after flush: ${formatUnits(
         aUSDCYieldSourceBalanceAfterFlush,

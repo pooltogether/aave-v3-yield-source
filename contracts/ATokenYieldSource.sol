@@ -52,12 +52,13 @@ contract ATokenYieldSource is ERC20, IYieldSource, Manageable, ReentrancyGuard {
   );
 
   /**
-   * @notice Emitted when Aave rewards have been claimed.
-   * @param from Address who claimed the rewards
-   * @param to Address that received the rewards
-   * @param amount Amount of rewards claimed
+   * @notice Emitted when asset tokens are supplied to the yield source.
+   * @param from Address that supplied the tokens
+   * @param shares Amount of shares minted to the user
+   * @param amount Amount of tokens supplied
+   * @param to Address that received the shares
    */
-  event Claimed(address indexed from, address indexed to, uint256 amount);
+  event SuppliedTokenTo(address indexed from, uint256 shares, uint256 amount, address indexed to);
 
   /**
    * @notice Emitted when asset tokens are redeemed from the yield source.
@@ -68,20 +69,18 @@ contract ATokenYieldSource is ERC20, IYieldSource, Manageable, ReentrancyGuard {
   event RedeemedToken(address indexed from, uint256 shares, uint256 amount);
 
   /**
-   * @notice Emitted when asset tokens are supplied to sponsor the yield source.
-   * @param from Address that supplied the tokens
-   * @param amount Amount of tokens supplied
+   * @notice Emitted when Aave rewards have been claimed.
+   * @param from Address who claimed the rewards
+   * @param to Address that received the rewards
+   * @param rewardsList List of addresses of the reward tokens
+   * @param claimedAmounts List that contains the claimed amount per reward token
    */
-  event Sponsored(address indexed from, uint256 amount);
-
-  /**
-   * @notice Emitted when asset tokens are supplied to the yield source.
-   * @param from Address that supplied the tokens
-   * @param shares Amount of shares minted to the user
-   * @param amount Amount of tokens supplied
-   * @param to Address that received the shares
-   */
-  event SuppliedTokenTo(address indexed from, uint256 shares, uint256 amount, address indexed to);
+  event Claimed(
+    address indexed from,
+    address indexed to,
+    address[] rewardsList,
+    uint256[] claimedAmounts
+  );
 
   /**
    * @notice Emitted when ERC20 tokens other than yield source's aToken are withdrawn from the yield source.
@@ -96,22 +95,6 @@ contract ATokenYieldSource is ERC20, IYieldSource, Manageable, ReentrancyGuard {
     uint256 amount,
     IERC20 indexed token
   );
-
-  /* ============ Structs ============ */
-
-  /**
-   * @notice Secp256k1 signature values.
-   * @param deadline Timestamp at which the signature expires
-   * @param v `v` portion of the signature
-   * @param r `r` portion of the signature
-   * @param s `s` portion of the signature
-   */
-  struct Signature {
-    uint256 deadline;
-    uint8 v;
-    bytes32 r;
-    bytes32 s;
-  }
 
   /* ============ Variables ============ */
 
@@ -236,17 +219,17 @@ contract ATokenYieldSource is ERC20, IYieldSource, Manageable, ReentrancyGuard {
    * @notice Supplies asset tokens to the yield source.
    * @dev Shares corresponding to the number of tokens supplied are minted to the user's balance.
    * @dev Asset tokens are supplied to the yield source, then deposited into Aave.
-   * @param _mintAmount The amount of asset tokens to be supplied
+   * @param _depositAmount The amount of asset tokens to be supplied
    * @param _to The user whose balance will receive the tokens
    */
-  function supplyTokenTo(uint256 _mintAmount, address _to) external override nonReentrant {
-    uint256 _shares = _tokenToShares(_mintAmount);
+  function supplyTokenTo(uint256 _depositAmount, address _to) external override nonReentrant {
+    uint256 _shares = _tokenToShares(_depositAmount);
 
     require(_shares > 0, "ATokenYS/shares-gt-zero");
-    _supplyToAave(_mintAmount);
+    _supplyToAave(_depositAmount);
     _mint(_to, _shares);
 
-    emit SuppliedTokenTo(msg.sender, _shares, _mintAmount, _to);
+    emit SuppliedTokenTo(msg.sender, _shares, _depositAmount, _to);
   }
 
   /**
@@ -286,9 +269,10 @@ contract ATokenYieldSource is ERC20, IYieldSource, Manageable, ReentrancyGuard {
     address[] memory _assets = new address[](1);
     _assets[0] = address(aToken);
 
-    (, uint256[] memory _claimedAmounts) = rewardsController.claimAllRewards(_assets, _to);
+    (address[] memory _rewardsList, uint256[] memory _claimedAmounts) = rewardsController
+      .claimAllRewards(_assets, _to);
 
-    emit Claimed(msg.sender, _to, _claimedAmounts[0]);
+    emit Claimed(msg.sender, _to, _rewardsList, _claimedAmounts);
     return true;
   }
 
@@ -309,53 +293,29 @@ contract ATokenYieldSource is ERC20, IYieldSource, Manageable, ReentrancyGuard {
     emit TransferredERC20(msg.sender, _to, _amount, _token);
   }
 
-  /**
-   * @notice Allows someone to deposit into the yield source without receiving any shares.
-   * @dev This allows anyone to distribute tokens among the share holders.
-   * @param _sponsorAmount The amount of tokens to deposit
-   */
-  function sponsor(uint256 _sponsorAmount) external nonReentrant {
-    _supplyToAave(_sponsorAmount);
-    emit Sponsored(msg.sender, _sponsorAmount);
-  }
-
-  /**
-   * @notice Allows someone to deposit into the yield source without receiving any shares.
-   * @dev This allows anyone to distribute tokens among the share holders.
-   * @param _sponsorAmount The amount of tokens to deposit
-   * @param _permitSignature Permit signature
-   */
-  function sponsorWithPermit(uint256 _sponsorAmount, Signature calldata _permitSignature)
-    external
-    nonReentrant
-  {
-    _supplyToAaveWithPermit(_sponsorAmount, _permitSignature);
-    emit Sponsored(msg.sender, _sponsorAmount);
-  }
-
   /* ============ Internal Functions ============ */
 
   /**
    * @notice Calculates the number of shares that should be minted or burnt when a user deposit or withdraw.
-   * @param _tokens Amount of tokens
+   * @param _tokens Amount of asset tokens
    * @return Number of shares.
    */
   function _tokenToShares(uint256 _tokens) internal view returns (uint256) {
     uint256 _supply = totalSupply();
 
-    // shares = tokens * (totalShares / yieldSourceTotalSupply)
+    // shares = tokens * (totalShares / yieldSourceATokenTotalSupply)
     return _supply == 0 ? _tokens : _tokens.wadMul(_supply.wadDiv(aToken.balanceOf(address(this))));
   }
 
   /**
-   * @notice Calculates the number of tokens a user has in the yield source.
+   * @notice Calculates the number of asset tokens a user has in the yield source.
    * @param _shares Amount of shares
-   * @return Number of tokens.
+   * @return Number of asset tokens.
    */
   function _sharesToToken(uint256 _shares) internal view returns (uint256) {
     uint256 _supply = totalSupply();
 
-    // tokens = (shares * yieldSourceTotalSupply) / totalShares
+    // tokens = (shares * yieldSourceATokenTotalSupply) / totalShares
     return _supply == 0 ? _shares : _shares.mul(aToken.balanceOf(address(this))).div(_supply);
   }
 
@@ -377,39 +337,6 @@ contract ATokenYieldSource is ERC20, IYieldSource, Manageable, ReentrancyGuard {
 
     _depositAssetTokens(IERC20(_underlyingAssetAddress), _mintAmount);
     _pool().supply(_underlyingAssetAddress, _mintAmount, address(this), REFERRAL_CODE);
-  }
-
-  /**
-   * @notice Supply asset tokens to Aave with permit.
-   * @param _mintAmount Amount of asset tokens to be supplied
-   * @param _permitSignature Permit signature
-   */
-  function _supplyToAaveWithPermit(uint256 _mintAmount, Signature calldata _permitSignature)
-    internal
-  {
-    address _underlyingAssetAddress = _tokenAddress();
-
-    IERC20Permit(_underlyingAssetAddress).permit(
-      msg.sender,
-      address(this),
-      _mintAmount,
-      _permitSignature.deadline,
-      _permitSignature.v,
-      _permitSignature.r,
-      _permitSignature.s
-    );
-
-    _depositAssetTokens(IERC20(_underlyingAssetAddress), _mintAmount);
-    _pool().supplyWithPermit(
-      _underlyingAssetAddress,
-      _mintAmount,
-      address(this),
-      REFERRAL_CODE,
-      _permitSignature.deadline,
-      _permitSignature.v,
-      _permitSignature.r,
-      _permitSignature.s
-    );
   }
 
   /**

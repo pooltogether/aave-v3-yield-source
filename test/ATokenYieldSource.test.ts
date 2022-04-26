@@ -19,9 +19,7 @@ import IPoolAddressesProvider from '../abis/IPoolAddressesProvider.json';
 import IPoolAddressesProviderRegistry from '../abis/IPoolAddressesProviderRegistry.json';
 import SafeERC20Wrapper from '../abis/SafeERC20Wrapper.json';
 
-import { permitSignature } from './utils/permitSignature';
-
-const { constants, getContractFactory, getSigners, provider, utils } = ethers;
+const { constants, getContractFactory, getSigners, utils } = ethers;
 const { AddressZero, MaxUint256 } = constants;
 const { parseEther: toWei } = utils;
 
@@ -92,7 +90,7 @@ describe('ATokenYieldSource', () => {
   const sharesToToken = async (shares: BigNumber, yieldSourceTotalSupply: BigNumber) => {
     const totalShares = await aTokenYieldSource.callStatic.totalSupply();
 
-    // tokens = (shares * yieldSourceTotalSupply) / totalShares
+    // tokens = (shares * yieldSourceATokenTotalSupply) / totalShares
     return shares.mul(yieldSourceTotalSupply).div(totalShares);
   };
 
@@ -464,7 +462,7 @@ describe('ATokenYieldSource', () => {
     it('should claimRewards if yieldSourceOwner', async () => {
       await expect(aTokenYieldSource.connect(yieldSourceOwner).claimRewards(wallet2.address))
         .to.emit(aTokenYieldSource, 'Claimed')
-        .withArgs(yieldSourceOwner.address, wallet2.address, claimAmount);
+        .withArgs(yieldSourceOwner.address, wallet2.address, [erc20Token.address], [claimAmount]);
     });
 
     it('should claimRewards if assetManager', async () => {
@@ -472,7 +470,7 @@ describe('ATokenYieldSource', () => {
 
       await expect(aTokenYieldSource.connect(wallet2).claimRewards(wallet2.address))
         .to.emit(aTokenYieldSource, 'Claimed')
-        .withArgs(wallet2.address, wallet2.address, claimAmount);
+        .withArgs(wallet2.address, wallet2.address, [erc20Token.address], [claimAmount]);
     });
 
     it('should fail to claimRewards if recipient is address zero', async () => {
@@ -525,122 +523,6 @@ describe('ATokenYieldSource', () => {
           .connect(wallet2)
           .transferERC20(erc20Token.address, yieldSourceOwner.address, toWei('10')),
       ).to.be.revertedWith('Manageable/caller-not-manager-or-owner');
-    });
-  });
-
-  describe('sponsor()', () => {
-    let amount: BigNumber;
-    let tokenAddress: any;
-
-    beforeEach(async () => {
-      amount = toWei('500');
-      tokenAddress = await aTokenYieldSource.tokenAddress();
-    });
-
-    it('should sponsor Yield Source', async () => {
-      const wallet2Amount = toWei('100');
-
-      await supplyTokenTo(wallet2, wallet2Amount, wallet2Amount);
-
-      await pool.mock.supply
-        .withArgs(tokenAddress, amount, aTokenYieldSource.address, REFERRAL_CODE)
-        .returns();
-
-      await usdcToken.mint(yieldSourceOwner.address, amount);
-      await usdcToken.connect(yieldSourceOwner).approve(aTokenYieldSource.address, MaxUint256);
-
-      await aTokenYieldSource.connect(yieldSourceOwner).sponsor(amount);
-
-      await aToken.mock.balanceOf
-        .withArgs(aTokenYieldSource.address)
-        .returns(amount.add(wallet2Amount));
-
-      expect(await aTokenYieldSource.callStatic.balanceOfToken(wallet2.address)).to.equal(
-        amount.add(wallet2Amount),
-      );
-    });
-
-    it('should revert on error', async () => {
-      await pool.mock.supply
-        .withArgs(tokenAddress, amount, aTokenYieldSource.address, REFERRAL_CODE)
-        .reverts();
-
-      await expect(aTokenYieldSource.connect(yieldSourceOwner).sponsor(amount)).to.be.revertedWith(
-        '',
-      );
-    });
-  });
-
-  describe('sponsorWithPermit()', () => {
-    let amount: BigNumber;
-    let tokenAddress: any;
-    let signature: any;
-
-    beforeEach(async () => {
-      amount = toWei('500');
-      tokenAddress = await aTokenYieldSource.tokenAddress();
-
-      signature = await permitSignature({
-        permitToken: tokenAddress,
-        fromWallet: yieldSourceOwner,
-        spender: aTokenYieldSource.address,
-        amount,
-        provider,
-      });
-    });
-
-    it('should sponsor Yield Source', async () => {
-      const wallet2Amount = toWei('100');
-
-      await supplyTokenTo(wallet2, wallet2Amount, wallet2Amount);
-
-      await pool.mock.supply
-        .withArgs(tokenAddress, amount, aTokenYieldSource.address, REFERRAL_CODE)
-        .returns();
-
-      await usdcToken.mint(yieldSourceOwner.address, amount);
-
-      await pool.mock.supplyWithPermit
-        .withArgs(
-          tokenAddress,
-          amount,
-          aTokenYieldSource.address,
-          REFERRAL_CODE,
-          signature.deadline,
-          signature.v,
-          signature.r,
-          signature.s,
-        )
-        .returns();
-
-      await aTokenYieldSource.connect(yieldSourceOwner).sponsorWithPermit(amount, signature);
-
-      await aToken.mock.balanceOf
-        .withArgs(aTokenYieldSource.address)
-        .returns(amount.add(wallet2Amount));
-
-      expect(await aTokenYieldSource.callStatic.balanceOfToken(wallet2.address)).to.equal(
-        amount.add(wallet2Amount),
-      );
-    });
-
-    it('should revert on error', async () => {
-      await pool.mock.supplyWithPermit
-        .withArgs(
-          tokenAddress,
-          amount,
-          aTokenYieldSource.address,
-          REFERRAL_CODE,
-          signature.deadline,
-          signature.v,
-          signature.r,
-          signature.s,
-        )
-        .reverts();
-
-      await expect(
-        aTokenYieldSource.connect(yieldSourceOwner).sponsorWithPermit(amount, signature),
-      ).to.be.revertedWith('');
     });
   });
 
