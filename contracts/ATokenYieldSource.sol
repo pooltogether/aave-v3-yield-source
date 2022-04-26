@@ -9,13 +9,13 @@ import { IPoolAddressesProviderRegistry } from "@aave/core-v3/contracts/interfac
 import { IRewardsController } from "@aave/periphery-v3/contracts/rewards/interfaces/IRewardsController.sol";
 import { WadRayMath } from "@aave/core-v3/contracts/protocol/libraries/math/WadRayMath.sol";
 
-import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { IERC20Permit } from "@openzeppelin/contracts/token/ERC20/extensions/draft-IERC20Permit.sol";
+import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { SafeMath } from "@openzeppelin/contracts/utils/math/SafeMath.sol";
-
 import { ReentrancyGuard } from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+
 import { Manageable, Ownable } from "@pooltogether/owner-manager-contracts/contracts/Manageable.sol";
 import { IYieldSource } from "@pooltogether/yield-source-interface/contracts/IYieldSource.sol";
 
@@ -32,13 +32,13 @@ contract ATokenYieldSource is ERC20, IYieldSource, Manageable, ReentrancyGuard {
   /* ============ Events ============ */
 
   /**
-   * @notice Emitted when the yield source is initialized
+   * @notice Emitted when the yield source is initialized.
    * @param aToken Aave aToken address
    * @param rewardsController Aave rewardsController address
    * @param poolAddressesProviderRegistry Aave poolAddressesProviderRegistry address
    * @param name Token name for the underlying ERC20 shares
    * @param symbol Token symbol for the underlying ERC20 shares
-   * @param decimals Number of decimals the shares (inhereted ERC20) will have. Same as underlying asset to ensure sane ExchangeRates.
+   * @param decimals Number of decimals the shares (inhereted ERC20) will have. Same as underlying asset to ensure sane exchange rates for shares.
    * @param owner Owner of this contract
    */
   event ATokenYieldSourceInitialized(
@@ -52,7 +52,7 @@ contract ATokenYieldSource is ERC20, IYieldSource, Manageable, ReentrancyGuard {
   );
 
   /**
-   * @notice Emitted when Aave rewards have been claimed
+   * @notice Emitted when Aave rewards have been claimed.
    * @param from Address who claimed the rewards
    * @param to Address that received the rewards
    * @param amount Amount of rewards claimed
@@ -60,7 +60,7 @@ contract ATokenYieldSource is ERC20, IYieldSource, Manageable, ReentrancyGuard {
   event Claimed(address indexed from, address indexed to, uint256 amount);
 
   /**
-   * @notice Emitted when asset tokens are redeemed from the yield source
+   * @notice Emitted when asset tokens are redeemed from the yield source.
    * @param from Address who redeemed the tokens
    * @param shares Amount of shares burnt
    * @param amount Amount of tokens redeemed
@@ -68,7 +68,7 @@ contract ATokenYieldSource is ERC20, IYieldSource, Manageable, ReentrancyGuard {
   event RedeemedToken(address indexed from, uint256 shares, uint256 amount);
 
   /**
-   * @notice Emitted when asset tokens are supplied to sponsor the yield source
+   * @notice Emitted when asset tokens are supplied to sponsor the yield source.
    * @param from Address that supplied the tokens
    * @param amount Amount of tokens supplied
    */
@@ -128,8 +128,8 @@ contract ATokenYieldSource is ERC20, IYieldSource, Manageable, ReentrancyGuard {
   uint8 private immutable _decimals;
 
   /**
-   * @dev Aave genesis market PoolAddressesProvider's ID
-   * @dev This variable could evolve in the future if we decide to support other markets
+   * @dev Aave genesis market PoolAddressesProvider's ID.
+   * @dev This variable could evolve in the future if we decide to support other markets.
    */
   uint256 private constant ADDRESSES_PROVIDER_ID = uint256(0);
 
@@ -139,13 +139,13 @@ contract ATokenYieldSource is ERC20, IYieldSource, Manageable, ReentrancyGuard {
   /* ============ Constructor ============ */
 
   /**
-   * @notice Initializes the yield source with Aave aToken
+   * @notice Initializes the yield source with Aave aToken.
    * @param _aToken Aave aToken address
    * @param _rewardsController Aave rewardsController address
    * @param _poolAddressesProviderRegistry Aave poolAddressesProviderRegistry address
    * @param _name Token name for the underlying ERC20 shares
    * @param _symbol Token symbol for the underlying ERC20 shares
-   * @param decimals_ Number of decimals the shares (inhereted ERC20) will have. Same as underlying asset to ensure sane ExchangeRates.
+   * @param decimals_ Number of decimals the shares (inhereted ERC20) will have. Same as underlying asset to ensure sane exchange rates for shares.
    * @param _owner Owner of this contract
    */
   constructor(
@@ -160,17 +160,11 @@ contract ATokenYieldSource is ERC20, IYieldSource, Manageable, ReentrancyGuard {
     require(address(_aToken) != address(0), "ATokenYS/aToken-not-zero-address");
     aToken = _aToken;
 
-    require(
-      address(_rewardsController) != address(0),
-      "ATokenYS/rewardsController-not-zero-address"
-    );
+    require(address(_rewardsController) != address(0), "ATokenYS/RC-not-zero-address");
 
     rewardsController = _rewardsController;
 
-    require(
-      address(_poolAddressesProviderRegistry) != address(0),
-      "ATokenYS/poolRegistry-not-zero-address"
-    );
+    require(address(_poolAddressesProviderRegistry) != address(0), "ATokenYS/PR-not-zero-address");
 
     poolAddressesProviderRegistry = _poolAddressesProviderRegistry;
 
@@ -203,19 +197,22 @@ contract ATokenYieldSource is ERC20, IYieldSource, Manageable, ReentrancyGuard {
   function approveMaxAmount() external onlyOwner returns (bool) {
     address _poolAddress = address(_pool());
     IERC20 _underlyingAsset = IERC20(_tokenAddress());
-    uint256 _allowance = _underlyingAsset.allowance(address(this), _poolAddress);
 
-    _underlyingAsset.safeIncreaseAllowance(_poolAddress, type(uint256).max.sub(_allowance));
+    _underlyingAsset.safeIncreaseAllowance(
+      _poolAddress,
+      type(uint256).max.sub(_underlyingAsset.allowance(address(this), _poolAddress))
+    );
+
     return true;
   }
 
   /**
    * @notice Returns user total balance (in asset tokens). This includes their deposit and interest.
-   * @param addr User address
+   * @param _user Address of the user to get balance of token for
    * @return The underlying balance of asset tokens.
    */
-  function balanceOfToken(address addr) external override returns (uint256) {
-    return _sharesToToken(balanceOf(addr));
+  function balanceOfToken(address _user) external override returns (uint256) {
+    return _sharesToToken(balanceOf(_user));
   }
 
   /**
@@ -229,7 +226,7 @@ contract ATokenYieldSource is ERC20, IYieldSource, Manageable, ReentrancyGuard {
   /**
    * @notice Returns the Yield Source ERC20 token decimals.
    * @dev This value should be equal to the decimals of the token used to deposit into the pool.
-   * @return The number of decimals
+   * @return The number of decimals.
    */
   function decimals() public view virtual override returns (uint8) {
     return _decimals;
@@ -237,8 +234,8 @@ contract ATokenYieldSource is ERC20, IYieldSource, Manageable, ReentrancyGuard {
 
   /**
    * @notice Supplies asset tokens to the yield source.
-   * @dev Shares corresponding to the number of tokens supplied are minted to the user's balance
-   * @dev Asset tokens are supplied to the yield source, then deposited into Aave
+   * @dev Shares corresponding to the number of tokens supplied are minted to the user's balance.
+   * @dev Asset tokens are supplied to the yield source, then deposited into Aave.
    * @param _mintAmount The amount of asset tokens to be supplied
    * @param _to The user whose balance will receive the tokens
    */
@@ -280,7 +277,7 @@ contract ATokenYieldSource is ERC20, IYieldSource, Manageable, ReentrancyGuard {
   /**
    * @notice Claims the accrued rewards for the aToken, accumulating any pending rewards.
    * @dev Only callable by the owner or manager.
-   * @param _to Address where the claimed rewards will be sent.
+   * @param _to Address where the claimed rewards will be sent
    * @return True if operation was successful.
    */
   function claimRewards(address _to) external onlyManagerOrOwner returns (bool) {
@@ -297,7 +294,7 @@ contract ATokenYieldSource is ERC20, IYieldSource, Manageable, ReentrancyGuard {
 
   /**
    * @notice Transfer ERC20 tokens other than the aTokens held by this contract to the recipient address.
-   * @dev This function is only callable by the owner or asset manager
+   * @dev This function is only callable by the owner or asset manager.
    * @param _token The ERC20 token to transfer
    * @param _to The recipient of the tokens
    * @param _amount The amount of tokens to transfer
@@ -339,7 +336,7 @@ contract ATokenYieldSource is ERC20, IYieldSource, Manageable, ReentrancyGuard {
   /* ============ Internal Functions ============ */
 
   /**
-   * @notice Calculates the number of shares that should be mint or burned when a user deposit or withdraw.
+   * @notice Calculates the number of shares that should be minted or burnt when a user deposit or withdraw.
    * @param _tokens Amount of tokens
    * @return Number of shares.
    */

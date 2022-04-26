@@ -189,7 +189,7 @@ describe('ATokenYieldSource', () => {
           DECIMALS,
           yieldSourceOwner.address,
         ),
-      ).to.be.revertedWith('ATokenYS/rewardsController-not-zero-address');
+      ).to.be.revertedWith('ATokenYS/RC-not-zero-address');
     });
 
     it('should fail if poolAddressesProviderRegistry is address zero', async () => {
@@ -201,7 +201,7 @@ describe('ATokenYieldSource', () => {
           DECIMALS,
           yieldSourceOwner.address,
         ),
-      ).to.be.revertedWith('ATokenYS/poolRegistry-not-zero-address');
+      ).to.be.revertedWith('ATokenYS/PR-not-zero-address');
     });
 
     it('should fail if owner is address zero', async () => {
@@ -231,9 +231,7 @@ describe('ATokenYieldSource', () => {
 
   describe('approveMaxAmount()', () => {
     it('should approve Aave pool to spend max uint256 amount', async () => {
-      expect(
-        await aTokenYieldSource.connect(yieldSourceOwner).callStatic.approveMaxAmount(),
-      ).to.equal(true);
+      await aTokenYieldSource.connect(yieldSourceOwner).approveMaxAmount();
 
       expect(await usdcToken.allowance(aTokenYieldSource.address, pool.address)).to.equal(
         MaxUint256,
@@ -241,9 +239,9 @@ describe('ATokenYieldSource', () => {
     });
 
     it('should fail if not owner', async () => {
-      await expect(
-        aTokenYieldSource.connect(wallet2).callStatic.approveMaxAmount(),
-      ).to.be.revertedWith('Ownable/caller-not-owner');
+      await expect(aTokenYieldSource.connect(wallet2).approveMaxAmount()).to.be.revertedWith(
+        'Ownable/caller-not-owner',
+      );
     });
   });
 
