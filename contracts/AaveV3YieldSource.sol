@@ -24,7 +24,7 @@ import { IYieldSource } from "@pooltogether/yield-source-interface/contracts/IYi
  * @dev This contract inherits from the ERC20 implementation to keep track of users deposits.
  * @notice Yield Source for a PoolTogether prize pool that generates yield by depositing into Aave V3.
  */
-contract ATokenYieldSource is ERC20, IYieldSource, Manageable, ReentrancyGuard {
+contract AaveV3YieldSource is ERC20, IYieldSource, Manageable, ReentrancyGuard {
   using SafeMath for uint256;
   using SafeERC20 for IERC20;
   using WadRayMath for uint256;
@@ -41,7 +41,7 @@ contract ATokenYieldSource is ERC20, IYieldSource, Manageable, ReentrancyGuard {
    * @param decimals Number of decimals the shares (inhereted ERC20) will have. Same as underlying asset to ensure sane exchange rates for shares.
    * @param owner Owner of this contract
    */
-  event ATokenYieldSourceInitialized(
+  event AaveV3YieldSourceInitialized(
     IAToken indexed aToken,
     IRewardsController rewardsController,
     IPoolAddressesProviderRegistry poolAddressesProviderRegistry,
@@ -154,26 +154,26 @@ contract ATokenYieldSource is ERC20, IYieldSource, Manageable, ReentrancyGuard {
     uint8 decimals_,
     address _owner
   ) Ownable(_owner) ERC20(_name, _symbol) ReentrancyGuard() {
-    require(address(_aToken) != address(0), "ATokenYS/aToken-not-zero-address");
+    require(address(_aToken) != address(0), "AaveV3YS/aToken-not-zero-address");
     aToken = _aToken;
 
-    require(address(_rewardsController) != address(0), "ATokenYS/RC-not-zero-address");
+    require(address(_rewardsController) != address(0), "AaveV3YS/RC-not-zero-address");
 
     rewardsController = _rewardsController;
 
-    require(address(_poolAddressesProviderRegistry) != address(0), "ATokenYS/PR-not-zero-address");
+    require(address(_poolAddressesProviderRegistry) != address(0), "AaveV3YS/PR-not-zero-address");
 
     poolAddressesProviderRegistry = _poolAddressesProviderRegistry;
 
-    require(_owner != address(0), "ATokenYS/owner-not-zero-address");
+    require(_owner != address(0), "AaveV3YS/owner-not-zero-address");
 
-    require(decimals_ > 0, "ATokenYS/decimals-gt-zero");
+    require(decimals_ > 0, "AaveV3YS/decimals-gt-zero");
     _decimals = decimals_;
 
     // Approve once for max amount
     IERC20(_tokenAddress()).safeApprove(address(_pool()), type(uint256).max);
 
-    emit ATokenYieldSourceInitialized(
+    emit AaveV3YieldSourceInitialized(
       _aToken,
       _rewardsController,
       _poolAddressesProviderRegistry,
@@ -239,7 +239,7 @@ contract ATokenYieldSource is ERC20, IYieldSource, Manageable, ReentrancyGuard {
   function supplyTokenTo(uint256 _depositAmount, address _to) external override nonReentrant {
     uint256 _shares = _tokenToShares(_depositAmount);
 
-    require(_shares > 0, "ATokenYS/shares-gt-zero");
+    require(_shares > 0, "AaveV3YS/shares-gt-zero");
     _supplyToAave(_depositAmount);
     _mint(_to, _shares);
 
@@ -278,7 +278,7 @@ contract ATokenYieldSource is ERC20, IYieldSource, Manageable, ReentrancyGuard {
    * @return True if operation was successful.
    */
   function claimRewards(address _to) external onlyManagerOrOwner returns (bool) {
-    require(_to != address(0), "ATokenYS/payee-not-zero-address");
+    require(_to != address(0), "AaveV3YS/payee-not-zero-address");
 
     address[] memory _assets = new address[](1);
     _assets[0] = address(aToken);
@@ -303,7 +303,7 @@ contract ATokenYieldSource is ERC20, IYieldSource, Manageable, ReentrancyGuard {
     address _spender,
     uint256 _amount
   ) external onlyManagerOrOwner {
-    require(address(_token) != address(aToken), "ATokenYS/forbid-aToken-approve");
+    require(address(_token) != address(aToken), "AaveV3YS/forbid-aToken-approve");
 
     uint256 _currentAllowance = _token.allowance(address(this), _spender);
 
@@ -328,7 +328,7 @@ contract ATokenYieldSource is ERC20, IYieldSource, Manageable, ReentrancyGuard {
     address _to,
     uint256 _amount
   ) external onlyManagerOrOwner {
-    require(address(_token) != address(aToken), "ATokenYS/forbid-aToken-transfer");
+    require(address(_token) != address(aToken), "AaveV3YS/forbid-aToken-transfer");
     _token.safeTransfer(_to, _amount);
     emit TransferredERC20(msg.sender, _to, _amount, _token);
   }

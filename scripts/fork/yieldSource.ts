@@ -7,9 +7,9 @@ import { action, info, success } from "../../helpers";
 
 import { increaseTime as increaseTimeUtil } from "../../test/utils/increaseTime";
 
-export default task("fork:yield-source", "Run ATokenYieldSource fork").setAction(
+export default task("fork:yield-source", "Run AaveV3YieldSource fork").setAction(
   async (taskArguments, hre) => {
-    action("Run ATokenYieldSource fork...");
+    action("Run AaveV3YieldSource fork...");
 
     const { ethers, run } = hre;
 
@@ -30,7 +30,7 @@ export default task("fork:yield-source", "Run ATokenYieldSource fork").setAction
     ] = await run("fork:create-pool");
 
     const aaveUsdcYieldSource = await getContractAt(
-      "ATokenYieldSource",
+      "AaveV3YieldSource",
       aaveUsdcYieldSourceAddress
     );
 
@@ -45,7 +45,7 @@ export default task("fork:yield-source", "Run ATokenYieldSource fork").setAction
     );
 
     info(
-      `ATokenYieldSource aUSDC balance after deposit: ${formatUnits(
+      `AaveV3YieldSource aUSDC balance after deposit: ${formatUnits(
         aUSDCYieldSourceBalanceBefore,
         USDC_TOKEN_DECIMALS
       )} aUSDC`
@@ -94,7 +94,7 @@ export default task("fork:yield-source", "Run ATokenYieldSource fork").setAction
     );
 
     info(
-      `ATokenYieldSource aUSDC balance 3 months later: ${formatUnits(
+      `AaveV3YieldSource aUSDC balance 3 months later: ${formatUnits(
         aUSDCYieldSourceBalanceAfter,
         USDC_TOKEN_DECIMALS
       )} aUSDC`
@@ -140,7 +140,7 @@ export default task("fork:yield-source", "Run ATokenYieldSource fork").setAction
     );
 
     info(
-      `ATokenYieldSource aUSDC balance after flush: ${formatUnits(
+      `AaveV3YieldSource aUSDC balance after flush: ${formatUnits(
         aUSDCYieldSourceBalanceAfterFlush,
         USDC_TOKEN_DECIMALS
       )} aUSDC`

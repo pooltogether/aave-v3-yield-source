@@ -2,9 +2,9 @@
 
 pragma solidity 0.8.10;
 
-import "../ATokenYieldSource.sol";
+import "../AaveV3YieldSource.sol";
 
-contract ATokenYieldSourceHarness is ATokenYieldSource {
+contract AaveV3YieldSourceHarness is AaveV3YieldSource {
   constructor(
     IAToken _aToken,
     IRewardsController _rewardsController,
@@ -14,7 +14,7 @@ contract ATokenYieldSourceHarness is ATokenYieldSource {
     uint8 _decimals,
     address _owner
   )
-    ATokenYieldSource(
+    AaveV3YieldSource(
       _aToken,
       _rewardsController,
       _poolAddressesProviderRegistry,

@@ -24,7 +24,7 @@ export default task("fork:create-pool", "Create pool").setAction(async (taskArgu
 
   info(`Deployer is: ${deployer}`);
 
-  const aaveUsdcYieldSourceResult = await deploy("ATokenYieldSource", {
+  const aaveUsdcYieldSourceResult = await deploy("AaveV3YieldSource", {
     from: deployer,
     args: [
       AUSDC_ADDRESS_POLYGON,
