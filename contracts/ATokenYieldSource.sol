@@ -360,23 +360,14 @@ contract ATokenYieldSource is ERC20, IYieldSource, Manageable, ReentrancyGuard {
   }
 
   /**
-   * @notice Deposits asset tokens into the yield source.
-   * @param _assetToken ERC20 asset token address
-   * @param _amount Amount of asset tokens to be deposited
-   */
-  function _depositAssetTokens(IERC20 _assetToken, uint256 _amount) internal {
-    _assetToken.safeTransferFrom(msg.sender, address(this), _amount);
-  }
-
-  /**
    * @notice Supply asset tokens to Aave.
-   * @param _mintAmount Amount of asset tokens to be supplied
+   * @param _amount Amount of asset tokens to be supplied
    */
-  function _supplyToAave(uint256 _mintAmount) internal {
+  function _supplyToAave(uint256 _amount) internal {
     address _underlyingAssetAddress = _tokenAddress();
 
-    _depositAssetTokens(IERC20(_underlyingAssetAddress), _mintAmount);
-    _pool().supply(_underlyingAssetAddress, _mintAmount, address(this), REFERRAL_CODE);
+    IERC20(_underlyingAssetAddress).safeTransferFrom(msg.sender, address(this), _amount);
+    _pool().supply(_underlyingAssetAddress, _amount, address(this), REFERRAL_CODE);
   }
 
   /**
