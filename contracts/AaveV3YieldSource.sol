@@ -81,13 +81,27 @@ contract AaveV3YieldSource is ERC20, IYieldSource, Manageable, ReentrancyGuard {
   );
 
   /**
-   * @notice Emitted when ERC20 tokens other than yield source's aToken are approved to spent.
+   * @notice Emitted when decreasing allowance of ERC20 tokens other than yield source's aToken.
    * @param from Address of the caller
    * @param spender Address of the spender
-   * @param amount Amount of `token` approved
-   * @param token Address of the ERC20 token approved
+   * @param amount Amount of `token` to decrease allowance by
+   * @param token Address of the ERC20 token to decrease allowance for
    */
-  event ApprovedERC20(
+  event DecreasedERC20Allowance(
+    address indexed from,
+    address indexed spender,
+    uint256 amount,
+    IERC20 indexed token
+  );
+
+  /**
+   * @notice Emitted when increasing allowance of ERC20 tokens other than yield source's aToken.
+   * @param from Address of the caller
+   * @param spender Address of the spender
+   * @param amount Amount of `token` to increase allowance by
+   * @param token Address of the ERC20 token to increase allowance for
+   */
+  event IncreasedERC20Allowance(
     address indexed from,
     address indexed spender,
     uint256 amount,
@@ -185,23 +199,6 @@ contract AaveV3YieldSource is ERC20, IYieldSource, Manageable, ReentrancyGuard {
   /* ============ External Functions ============ */
 
   /**
-   * @notice Approve Aave pool contract to spend max uint256 amount.
-   * @dev Emergency function to re-approve max amount if approval amount dropped too low.
-   * @return true if operation is successful
-   */
-  function approveMaxAmount() external onlyManagerOrOwner returns (bool) {
-    address _poolAddress = address(_pool());
-    IERC20 _underlyingAsset = IERC20(_tokenAddress());
-
-    _underlyingAsset.safeIncreaseAllowance(
-      _poolAddress,
-      type(uint256).max.sub(_underlyingAsset.allowance(address(this), _poolAddress))
-    );
-
-    return true;
-  }
-
-  /**
    * @notice Returns user total balance (in asset tokens). This includes their deposit and interest.
    * @param _user Address of the user to get balance of token for
    * @return The underlying balance of asset tokens.
@@ -289,37 +286,48 @@ contract AaveV3YieldSource is ERC20, IYieldSource, Manageable, ReentrancyGuard {
   }
 
   /**
-   * @notice Approve ERC20 tokens other than the aTokens held by this contract to be spent.
+   * @notice Decrease allowance of ERC20 tokens other than the aTokens held by this contract.
    * @dev This function is only callable by the owner or asset manager.
-   * @dev Allows another contract or address to withdraw funds from the yield source.
-   * @param _token The ERC20 token to approve
-   * @param _spender The spender of the tokens
-   * @param _amount The amount of tokens to approve
+   * @dev Current allowance should be computed off-chain to avoid any underflow.
+   * @param _token Address of the ERC20 token to decrease allowance for
+   * @param _spender Address of the spender of the tokens
+   * @param _amount Amount of tokens to decrease allowance by
    */
-  function approveERC20(
+  function decreaseERC20Allowance(
     IERC20 _token,
     address _spender,
     uint256 _amount
   ) external onlyManagerOrOwner {
-    require(address(_token) != address(aToken), "AaveV3YS/forbid-aToken-approve");
+    _requireNotAToken(address(_token));
+    _token.safeDecreaseAllowance(_spender, _amount);
+    emit DecreasedERC20Allowance(msg.sender, _spender, _amount, _token);
+  }
 
-    uint256 _currentAllowance = _token.allowance(address(this), _spender);
-
-    if (_amount > _currentAllowance) {
-      _token.safeIncreaseAllowance(_spender, _amount.sub(_currentAllowance));
-    } else {
-      _token.safeDecreaseAllowance(_spender, _currentAllowance.sub(_amount));
-    }
-
-    emit ApprovedERC20(msg.sender, _spender, _amount, _token);
+  /**
+   * @notice Increase allowance of ERC20 tokens other than the aTokens held by this contract.
+   * @dev This function is only callable by the owner or asset manager.
+   * @dev Allows another contract or address to withdraw funds from the yield source.
+   * @dev Current allowance should be computed off-chain to avoid any overflow.
+   * @param _token Address of the ERC20 token to increase allowance for
+   * @param _spender Address of the spender of the tokens
+   * @param _amount Amount of tokens to increase allowance by
+   */
+  function increaseERC20Allowance(
+    IERC20 _token,
+    address _spender,
+    uint256 _amount
+  ) external onlyManagerOrOwner {
+    _requireNotAToken(address(_token));
+    _token.safeIncreaseAllowance(_spender, _amount);
+    emit IncreasedERC20Allowance(msg.sender, _spender, _amount, _token);
   }
 
   /**
    * @notice Transfer ERC20 tokens other than the aTokens held by this contract to the recipient address.
    * @dev This function is only callable by the owner or asset manager.
-   * @param _token The ERC20 token to transfer
-   * @param _to The recipient of the tokens
-   * @param _amount The amount of tokens to transfer
+   * @param _token Address of the ERC20 token to transfer
+   * @param _to Address of the recipient of the tokens
+   * @param _amount Amount of tokens to transfer
    */
   function transferERC20(
     IERC20 _token,
@@ -332,6 +340,14 @@ contract AaveV3YieldSource is ERC20, IYieldSource, Manageable, ReentrancyGuard {
   }
 
   /* ============ Internal Functions ============ */
+
+  /**
+   * @notice Check that the token address passed is not the aToken address.
+   * @param _token Address of the ERC20 token to check
+   */
+  function _requireNotAToken(address _token) internal view {
+    require(_token != address(aToken), "AaveV3YS/forbid-aToken-allowance");
+  }
 
   /**
    * @notice Calculates the number of shares that should be minted or burnt when a user deposit or withdraw.

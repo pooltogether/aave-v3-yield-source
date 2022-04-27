@@ -227,32 +227,6 @@ describe('AaveV3YieldSource', () => {
     });
   });
 
-  describe('approveMaxAmount()', () => {
-    it('should approve Aave pool to spend max uint256 amount', async () => {
-      await aaveV3YieldSource.connect(yieldSourceOwner).approveMaxAmount();
-
-      expect(await usdcToken.allowance(aaveV3YieldSource.address, pool.address)).to.equal(
-        MaxUint256,
-      );
-    });
-
-    it('should allow manager to approve Aave pool to spend max uint256 amount', async () => {
-      await aaveV3YieldSource.connect(yieldSourceOwner).setManager(wallet2.address);
-
-      await aaveV3YieldSource.connect(wallet2).approveMaxAmount();
-
-      expect(await usdcToken.allowance(aaveV3YieldSource.address, pool.address)).to.equal(
-        MaxUint256,
-      );
-    });
-
-    it('should fail if not owner or manager', async () => {
-      await expect(aaveV3YieldSource.connect(wallet2).approveMaxAmount()).to.be.revertedWith(
-        'Manageable/caller-not-manager-or-owner',
-      );
-    });
-  });
-
   describe('decimals()', () => {
     it('should return the ERC30 token decimals number', async () => {
       expect(await aaveV3YieldSource.decimals()).to.equal(DECIMALS);
@@ -496,36 +470,40 @@ describe('AaveV3YieldSource', () => {
     });
   });
 
-  describe('approveERC20()', () => {
-    it('should approveERC20 if yieldSourceOwner', async () => {
+  describe('increaseERC20Allowance()', () => {
+    it('should increase allowance if yieldSourceOwner', async () => {
       const approveAmount = toWei('10');
 
       usdcToken.mint(aaveV3YieldSource.address, approveAmount);
 
       await aaveV3YieldSource
         .connect(yieldSourceOwner)
-        .approveERC20(usdcToken.address, yieldSourceOwner.address, approveAmount);
+        .increaseERC20Allowance(usdcToken.address, yieldSourceOwner.address, approveAmount);
 
-      usdcToken.connect(wallet2).transferFrom(aaveV3YieldSource.address, wallet2.address, approveAmount);
+      usdcToken
+        .connect(wallet2)
+        .transferFrom(aaveV3YieldSource.address, wallet2.address, approveAmount);
     });
 
-    it('should approveERC20 even if max amount as already been approved', async () => {
-      const approveAmount = toWei('10');
+    it('should increase allowance of the underlying asset deposited into the Aave pool', async () => {
+      await aaveV3YieldSource
+        .connect(yieldSourceOwner)
+        .decreaseERC20Allowance(usdcToken.address, pool.address, MaxUint256);
 
-      usdcToken.mint(aaveV3YieldSource.address, approveAmount);
+      expect(await usdcToken.allowance(aaveV3YieldSource.address, pool.address)).to.equal(
+        toWei('0'),
+      );
 
       await aaveV3YieldSource
         .connect(yieldSourceOwner)
-        .approveERC20(usdcToken.address, yieldSourceOwner.address, MaxUint256);
+        .increaseERC20Allowance(usdcToken.address, pool.address, MaxUint256);
 
-      await aaveV3YieldSource
-        .connect(yieldSourceOwner)
-        .approveERC20(usdcToken.address, yieldSourceOwner.address, approveAmount);
-
-      usdcToken.connect(wallet2).transferFrom(aaveV3YieldSource.address, wallet2.address, approveAmount);
+      expect(await usdcToken.allowance(aaveV3YieldSource.address, pool.address)).to.equal(
+        MaxUint256,
+      );
     });
 
-    it('should approveERC20 if assetManager', async () => {
+    it('should increase allowance if assetManager', async () => {
       const approveAmount = toWei('10');
 
       await aaveV3YieldSource.connect(yieldSourceOwner).setManager(wallet2.address);
@@ -534,24 +512,80 @@ describe('AaveV3YieldSource', () => {
 
       await aaveV3YieldSource
         .connect(wallet2)
-        .approveERC20(usdcToken.address, wallet2.address, approveAmount);
+        .increaseERC20Allowance(usdcToken.address, wallet2.address, approveAmount);
 
-      usdcToken.connect(wallet2).transferFrom(aaveV3YieldSource.address, wallet2.address, approveAmount);
+      usdcToken
+        .connect(wallet2)
+        .transferFrom(aaveV3YieldSource.address, wallet2.address, approveAmount);
     });
 
-    it('should not allow to approve aToken', async () => {
+    it('should not allow to increase allowance of aToken', async () => {
       await expect(
         aaveV3YieldSource
           .connect(yieldSourceOwner)
-          .approveERC20(aToken.address, wallet2.address, toWei('10')),
-      ).to.be.revertedWith('AaveV3YS/forbid-aToken-approve');
+          .increaseERC20Allowance(aToken.address, wallet2.address, toWei('10')),
+      ).to.be.revertedWith('AaveV3YS/forbid-aToken-allowance');
     });
 
-    it('should fail to approveERC20 if not yieldSourceOwner or assetManager', async () => {
+    it('should fail to increase allowance if not yieldSourceOwner or assetManager', async () => {
       await expect(
         aaveV3YieldSource
           .connect(wallet2)
-          .approveERC20(usdcToken.address, yieldSourceOwner.address, toWei('10')),
+          .increaseERC20Allowance(usdcToken.address, yieldSourceOwner.address, toWei('10')),
+      ).to.be.revertedWith('Manageable/caller-not-manager-or-owner');
+    });
+  });
+
+  describe('decreaseERC20Allowance()', () => {
+    beforeEach(async () => {
+      await aaveV3YieldSource
+        .connect(yieldSourceOwner)
+        .increaseERC20Allowance(usdcToken.address, wallet2.address, MaxUint256);
+    });
+
+    it('should decrease allowance if yieldSourceOwner', async () => {
+      usdcToken.mint(aaveV3YieldSource.address, MaxUint256);
+
+      await aaveV3YieldSource
+        .connect(yieldSourceOwner)
+        .decreaseERC20Allowance(usdcToken.address, wallet2.address, MaxUint256);
+
+      await expect(
+        usdcToken
+          .connect(wallet2)
+          .transferFrom(aaveV3YieldSource.address, wallet2.address, MaxUint256),
+      ).to.be.revertedWith('ERC20: insufficient allowance');
+    });
+
+    it('should decrease allowance if assetManager', async () => {
+      await aaveV3YieldSource.connect(yieldSourceOwner).setManager(wallet2.address);
+
+      usdcToken.mint(aaveV3YieldSource.address, MaxUint256);
+
+      await aaveV3YieldSource
+        .connect(wallet2)
+        .decreaseERC20Allowance(usdcToken.address, wallet2.address, MaxUint256);
+
+      await expect(
+        usdcToken
+          .connect(wallet2)
+          .transferFrom(aaveV3YieldSource.address, wallet2.address, MaxUint256),
+      ).to.be.revertedWith('ERC20: insufficient allowance');
+    });
+
+    it('should not allow to decrease allowance of aToken', async () => {
+      await expect(
+        aaveV3YieldSource
+          .connect(yieldSourceOwner)
+          .decreaseERC20Allowance(aToken.address, wallet2.address, MaxUint256),
+      ).to.be.revertedWith('AaveV3YS/forbid-aToken-allowance');
+    });
+
+    it('should fail to decrease allowance if not yieldSourceOwner or assetManager', async () => {
+      await expect(
+        aaveV3YieldSource
+          .connect(wallet2)
+          .decreaseERC20Allowance(usdcToken.address, yieldSourceOwner.address, MaxUint256),
       ).to.be.revertedWith('Manageable/caller-not-manager-or-owner');
     });
   });
