@@ -191,7 +191,7 @@ contract ATokenYieldSource is ERC20, IYieldSource, Manageable, ReentrancyGuard {
    * @dev Emergency function to re-approve max amount if approval amount dropped too low.
    * @return true if operation is successful
    */
-  function approveMaxAmount() external onlyOwner returns (bool) {
+  function approveMaxAmount() external onlyManagerOrOwner returns (bool) {
     address _poolAddress = address(_pool());
     IERC20 _underlyingAsset = IERC20(_tokenAddress());
 

@@ -236,9 +236,19 @@ describe('ATokenYieldSource', () => {
       );
     });
 
-    it('should fail if not owner', async () => {
+    it('should allow manager to approve Aave pool to spend max uint256 amount', async () => {
+      await aTokenYieldSource.connect(yieldSourceOwner).setManager(wallet2.address);
+
+      await aTokenYieldSource.connect(wallet2).approveMaxAmount();
+
+      expect(await usdcToken.allowance(aTokenYieldSource.address, pool.address)).to.equal(
+        MaxUint256,
+      );
+    });
+
+    it('should fail if not owner or manager', async () => {
       await expect(aTokenYieldSource.connect(wallet2).approveMaxAmount()).to.be.revertedWith(
-        'Ownable/caller-not-owner',
+        'Manageable/caller-not-manager-or-owner',
       );
     });
   });
