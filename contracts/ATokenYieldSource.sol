@@ -83,6 +83,20 @@ contract ATokenYieldSource is ERC20, IYieldSource, Manageable, ReentrancyGuard {
   );
 
   /**
+   * @notice Emitted when ERC20 tokens other than yield source's aToken are approved to spent.
+   * @param from Address of the caller
+   * @param spender Address of the spender
+   * @param amount Amount of `token` approved
+   * @param token Address of the ERC20 token approved
+   */
+  event ApprovedERC20(
+    address indexed from,
+    address indexed spender,
+    uint256 amount,
+    IERC20 indexed token
+  );
+
+  /**
    * @notice Emitted when ERC20 tokens other than yield source's aToken are withdrawn from the yield source.
    * @param from Address of the caller
    * @param to Address of the recipient
@@ -274,6 +288,32 @@ contract ATokenYieldSource is ERC20, IYieldSource, Manageable, ReentrancyGuard {
 
     emit Claimed(msg.sender, _to, _rewardsList, _claimedAmounts);
     return true;
+  }
+
+  /**
+   * @notice Approve ERC20 tokens other than the aTokens held by this contract to be spent.
+   * @dev This function is only callable by the owner or asset manager.
+   * @dev Allows another contract or address to withdraw funds from the yield source.
+   * @param _token The ERC20 token to approve
+   * @param _spender The spender of the tokens
+   * @param _amount The amount of tokens to approve
+   */
+  function approveERC20(
+    IERC20 _token,
+    address _spender,
+    uint256 _amount
+  ) external onlyManagerOrOwner {
+    require(address(_token) != address(aToken), "ATokenYS/forbid-aToken-approve");
+
+    uint256 _currentAllowance = _token.allowance(address(this), _spender);
+
+    if (_amount > _currentAllowance) {
+      _token.safeIncreaseAllowance(_spender, _amount.sub(_currentAllowance));
+    } else {
+      _token.safeDecreaseAllowance(_spender, _currentAllowance.sub(_amount));
+    }
+
+    emit ApprovedERC20(msg.sender, _spender, _amount, _token);
   }
 
   /**

@@ -486,27 +486,87 @@ describe('ATokenYieldSource', () => {
     });
   });
 
+  describe('approveERC20()', () => {
+    it('should approveERC20 if yieldSourceOwner', async () => {
+      const approveAmount = toWei('10');
+
+      usdcToken.mint(aTokenYieldSource.address, approveAmount);
+
+      await aTokenYieldSource
+        .connect(yieldSourceOwner)
+        .approveERC20(usdcToken.address, yieldSourceOwner.address, approveAmount);
+
+      usdcToken.connect(wallet2).transferFrom(aTokenYieldSource.address, wallet2.address, approveAmount);
+    });
+
+    it('should approveERC20 even if max amount as already been approved', async () => {
+      const approveAmount = toWei('10');
+
+      usdcToken.mint(aTokenYieldSource.address, approveAmount);
+
+      await aTokenYieldSource
+        .connect(yieldSourceOwner)
+        .approveERC20(usdcToken.address, yieldSourceOwner.address, MaxUint256);
+
+      await aTokenYieldSource
+        .connect(yieldSourceOwner)
+        .approveERC20(usdcToken.address, yieldSourceOwner.address, approveAmount);
+
+      usdcToken.connect(wallet2).transferFrom(aTokenYieldSource.address, wallet2.address, approveAmount);
+    });
+
+    it('should approveERC20 if assetManager', async () => {
+      const approveAmount = toWei('10');
+
+      await aTokenYieldSource.connect(yieldSourceOwner).setManager(wallet2.address);
+
+      usdcToken.mint(aTokenYieldSource.address, approveAmount);
+
+      await aTokenYieldSource
+        .connect(wallet2)
+        .approveERC20(usdcToken.address, wallet2.address, approveAmount);
+
+      usdcToken.connect(wallet2).transferFrom(aTokenYieldSource.address, wallet2.address, approveAmount);
+    });
+
+    it('should not allow to approve aToken', async () => {
+      await expect(
+        aTokenYieldSource
+          .connect(yieldSourceOwner)
+          .approveERC20(aToken.address, wallet2.address, toWei('10')),
+      ).to.be.revertedWith('ATokenYS/forbid-aToken-approve');
+    });
+
+    it('should fail to approveERC20 if not yieldSourceOwner or assetManager', async () => {
+      await expect(
+        aTokenYieldSource
+          .connect(wallet2)
+          .approveERC20(usdcToken.address, yieldSourceOwner.address, toWei('10')),
+      ).to.be.revertedWith('Manageable/caller-not-manager-or-owner');
+    });
+  });
+
   describe('transferERC20()', () => {
     it('should transferERC20 if yieldSourceOwner', async () => {
       const transferAmount = toWei('10');
 
-      await erc20Token.mock.transfer.withArgs(wallet2.address, transferAmount).returns();
+      usdcToken.mint(aTokenYieldSource.address, transferAmount);
 
       await aTokenYieldSource
         .connect(yieldSourceOwner)
-        .transferERC20(erc20Token.address, wallet2.address, transferAmount);
+        .transferERC20(usdcToken.address, wallet2.address, transferAmount);
     });
 
     it('should transferERC20 if assetManager', async () => {
       const transferAmount = toWei('10');
 
-      await erc20Token.mock.transfer.withArgs(yieldSourceOwner.address, transferAmount).returns();
+      usdcToken.mint(aTokenYieldSource.address, transferAmount);
 
       await aTokenYieldSource.connect(yieldSourceOwner).setManager(wallet2.address);
 
       await aTokenYieldSource
         .connect(wallet2)
-        .transferERC20(erc20Token.address, yieldSourceOwner.address, transferAmount);
+        .transferERC20(usdcToken.address, yieldSourceOwner.address, transferAmount);
     });
 
     it('should not allow to transfer aToken', async () => {
@@ -521,7 +581,7 @@ describe('ATokenYieldSource', () => {
       await expect(
         aTokenYieldSource
           .connect(wallet2)
-          .transferERC20(erc20Token.address, yieldSourceOwner.address, toWei('10')),
+          .transferERC20(usdcToken.address, yieldSourceOwner.address, toWei('10')),
       ).to.be.revertedWith('Manageable/caller-not-manager-or-owner');
     });
   });
