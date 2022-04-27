@@ -7,7 +7,6 @@ import { IPool } from "@aave/core-v3/contracts/interfaces/IPool.sol";
 import { IPoolAddressesProvider } from "@aave/core-v3/contracts/interfaces/IPoolAddressesProvider.sol";
 import { IPoolAddressesProviderRegistry } from "@aave/core-v3/contracts/interfaces/IPoolAddressesProviderRegistry.sol";
 import { IRewardsController } from "@aave/periphery-v3/contracts/rewards/interfaces/IRewardsController.sol";
-import { WadRayMath } from "@aave/core-v3/contracts/protocol/libraries/math/WadRayMath.sol";
 
 import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -27,7 +26,6 @@ import { IYieldSource } from "@pooltogether/yield-source-interface/contracts/IYi
 contract AaveV3YieldSource is ERC20, IYieldSource, Manageable, ReentrancyGuard {
   using SafeMath for uint256;
   using SafeERC20 for IERC20;
-  using WadRayMath for uint256;
 
   /* ============ Events ============ */
 
@@ -343,8 +341,8 @@ contract AaveV3YieldSource is ERC20, IYieldSource, Manageable, ReentrancyGuard {
   function _tokenToShares(uint256 _tokens) internal view returns (uint256) {
     uint256 _supply = totalSupply();
 
-    // shares = tokens * (totalShares / yieldSourceATokenTotalSupply)
-    return _supply == 0 ? _tokens : _tokens.wadMul(_supply.wadDiv(aToken.balanceOf(address(this))));
+    // shares = (tokens * totalShares) / yieldSourceATokenTotalSupply
+    return _supply == 0 ? _tokens : _tokens.mul(_supply).div(aToken.balanceOf(address(this)));
   }
 
   /**
