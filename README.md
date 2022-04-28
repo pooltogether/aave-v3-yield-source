@@ -6,56 +6,93 @@
 
 <br />
 
-# PoolTogether Contracts Template
+# PoolTogether Aave V3 Yield Source 👻
 
-[![Coverage Status](https://coveralls.io/repos/github/pooltogether/pooltogether-contracts-template/badge.svg?branch=master)](https://coveralls.io/github/pooltogether/pooltogether-contracts-template?branch=master)
+![Fork](https://github.com/pooltogether/aave-v3-yield-source/actions/workflows/fork.yml/badge.svg)
+![Tests](https://github.com/pooltogether/aave-v3-yield-source/actions/workflows/main.yml/badge.svg)
+[![Coverage Status](https://coveralls.io/repos/github/pooltogether/aave-v3-yield-source/badge.svg?branch=master)](https://coveralls.io/github/pooltogether/aave-v3-yield-source?branch=master)
+[![built-with openzeppelin](https://img.shields.io/badge/built%20with-OpenZeppelin-3677FF)](https://docs.openzeppelin.com/)
+[![GPLv3 license](https://img.shields.io/badge/License-GPLv3-blue.svg)](http://perso.crans.org/besson/LICENSE.html)
 
-![Tests](https://github.com/pooltogether/pooltogether-contracts-template/actions/workflows/main.yml/badge.svg)
+PoolTogether Yield Source that uses [Aave](https://aave.com) V3 to generate yield by lending any ERC20 token deposited into the Yield Source to Aave.
 
-# Usage
+## Development
 
-1. Clone this repo: `git clone git@github.com:pooltogether/pooltogether-contracts-template.git <DESTINATION REPO>`
-1. Create repo using Github GUI
-1. Set remote repo (`git remote add origin git@github.com:pooltogether/<NAME_OF_NEW_REPO>.git`),
-1. Checkout a new branch (`git checkout -b name_of_new_branch`)
-1. Begin implementing as appropriate.
-1. Update this README
+Clone this repository and enter the directory:
+```
+cd aave-v3-yield-source
+```
 
-## Usage
+### Installation
 
-This repo is setup to compile (`nvm use && yarn compile`) and successfully pass tests (`yarn test`)
+Install dependencies:
 
-# Preset Packages
+```
+yarn
+```
 
-## Generic Proxy Factory
 
-The minimal proxy factory is a powerful pattern used throughout PoolTogethers smart contracts. A [typescript package](https://www.npmjs.com/package/@pooltogether/pooltogether-proxy-factory-package) is available to use a generic deployed instance. This is typically used in the deployment script.
+### Env
 
-## Generic Registry
+We use [direnv](https://direnv.net) to manage environment variables. You'll likely need to install it.
 
-The [generic registry](https://www.npmjs.com/package/@pooltogether/pooltogether-generic-registry) is a iterable singly linked list data structure that is commonly used throughout PoolTogethers contracts. Consider using this where appropriate or deploying in a seperate repo such as the (Prize Pool Registry)[https://github.com/pooltogether/pooltogether-prizepool-registry.
+Copy `.envrc.example` and write down the env variables needed to run this project.
+```
+cp .envrc.example .envrc
+```
 
-# Installation
+Once your env variables are setup, load them with:
+```
+direnv allow
+```
 
-Install the repo and dependencies by running:
-`yarn`
+### Compile
 
-## Deployment
+Run the following command to compile the contract:
+```
+yarn compile
+```
 
-These contracts can be deployed to a network by running:
-`yarn deploy <networkName>`
+### Test
 
-## Verification
+We use the [Hardhat](https://hardhat.org) ecosystem to test our contracts.
 
-These contracts can be verified on Etherscan, or an Etherscan clone, for example (Polygonscan) by running:
-`yarn etherscan-verify <ethereum network name>` or `yarn etherscan-verify-polygon matic`
+To run unit tests:
 
-# Testing
+```
+yarn test
+```
 
-Run the unit tests locally with:
-`yarn test`
+To run coverage:
 
-## Coverage
+```
+yarn coverage
+```
 
-Generate the test coverage report with:
-`yarn coverage`
+### Polygon fork
+
+Before deploying, you can make sure your implementation works by deploying a Yield Source Prize Pool on a fork of Polygon.
+
+To do so, run the following command:
+```
+yarn run-yield-source-fork
+```
+
+
+### Code quality
+
+[Prettier](https://prettier.io) is used to format TypeScript and Solidity code. Use it by running:
+
+```
+yarn format
+```
+
+[Solhint](https://protofire.github.io/solhint/) is used to lint Solidity files. Run it with:
+```
+yarn hint
+```
+
+[TypeChain](https://github.com/ethereum-ts/Typechain) is used to generates types for scripts and tests. Generate types by running:
+```
+yarn typechain
+```
