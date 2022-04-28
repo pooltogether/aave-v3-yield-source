@@ -9,8 +9,8 @@
 # PoolTogether Aave V3 Yield Source 👻
 
 ![Fork](https://github.com/pooltogether/aave-v3-yield-source/actions/workflows/fork.yml/badge.svg)
-![Tests](https://github.com/pooltogether/aave-v3-yield-source/actions/workflows/main.yml/badge.svg)
-[![Coverage Status](https://coveralls.io/repos/github/pooltogether/aave-v3-yield-source/badge.svg?branch=master)](https://coveralls.io/github/pooltogether/aave-v3-yield-source?branch=master)
+![Tests](https://github.com/pooltogether/aave-v3-yield-source/actions/workflows/coveralls.yml/badge.svg)
+[![Coverage Status](https://coveralls.io/repos/github/pooltogether/aave-v3-yield-source/badge.svg)](https://coveralls.io/github/pooltogether/aave-v3-yield-source)
 [![built-with openzeppelin](https://img.shields.io/badge/built%20with-OpenZeppelin-3677FF)](https://docs.openzeppelin.com/)
 [![GPLv3 license](https://img.shields.io/badge/License-GPLv3-blue.svg)](http://perso.crans.org/besson/LICENSE.html)
 
