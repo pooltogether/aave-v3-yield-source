@@ -10,7 +10,6 @@ import { IRewardsController } from "@aave/periphery-v3/contracts/rewards/interfa
 
 import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import { IERC20Permit } from "@openzeppelin/contracts/token/ERC20/extensions/draft-IERC20Permit.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { SafeMath } from "@openzeppelin/contracts/utils/math/SafeMath.sol";
 import { ReentrancyGuard } from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
@@ -170,11 +169,9 @@ contract AaveV3YieldSource is ERC20, IYieldSource, Manageable, ReentrancyGuard {
     aToken = _aToken;
 
     require(address(_rewardsController) != address(0), "AaveV3YS/RC-not-zero-address");
-
     rewardsController = _rewardsController;
 
     require(address(_poolAddressesProviderRegistry) != address(0), "AaveV3YS/PR-not-zero-address");
-
     poolAddressesProviderRegistry = _poolAddressesProviderRegistry;
 
     require(_owner != address(0), "AaveV3YS/owner-not-zero-address");
@@ -233,9 +230,12 @@ contract AaveV3YieldSource is ERC20, IYieldSource, Manageable, ReentrancyGuard {
    */
   function supplyTokenTo(uint256 _depositAmount, address _to) external override nonReentrant {
     uint256 _shares = _tokenToShares(_depositAmount);
-
     require(_shares > 0, "AaveV3YS/shares-gt-zero");
-    _supplyToAave(_depositAmount);
+
+    address _underlyingAssetAddress = _tokenAddress();
+    IERC20(_underlyingAssetAddress).safeTransferFrom(msg.sender, address(this), _depositAmount);
+    _pool().supply(_underlyingAssetAddress, _depositAmount, address(this), REFERRAL_CODE);
+
     _mint(_to, _shares);
 
     emit SuppliedTokenTo(msg.sender, _shares, _depositAmount, _to);
@@ -371,17 +371,6 @@ contract AaveV3YieldSource is ERC20, IYieldSource, Manageable, ReentrancyGuard {
 
     // tokens = (shares * yieldSourceATokenTotalSupply) / totalShares
     return _supply == 0 ? _shares : _shares.mul(aToken.balanceOf(address(this))).div(_supply);
-  }
-
-  /**
-   * @notice Supply asset tokens to Aave.
-   * @param _amount Amount of asset tokens to be supplied
-   */
-  function _supplyToAave(uint256 _amount) internal {
-    address _underlyingAssetAddress = _tokenAddress();
-
-    IERC20(_underlyingAssetAddress).safeTransferFrom(msg.sender, address(this), _amount);
-    _pool().supply(_underlyingAssetAddress, _amount, address(this), REFERRAL_CODE);
   }
 
   /**
