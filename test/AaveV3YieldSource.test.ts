@@ -630,15 +630,6 @@ describe('AaveV3YieldSource', () => {
     });
   });
 
-  describe('_poolProvider()', () => {
-    it('should return Aave PoolAddressesProvider address', async () => {
-      const poolAddressesProviderList =
-        await poolAddressesProviderRegistry.getAddressesProvidersList();
-
-      expect(await aaveV3YieldSource.poolProvider()).to.equal(poolAddressesProviderList[0]);
-    });
-  });
-
   describe('_pool()', () => {
     it('should return Aave Pool address', async () => {
       expect(await aaveV3YieldSource.pool()).to.equal(pool.address);
