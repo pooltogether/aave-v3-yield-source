@@ -71,7 +71,7 @@ describe('AaveV3YieldSource', () => {
     amount: BigNumber,
     aTokenTotalSupply: BigNumber,
   ) => {
-    const tokenAddress = await aaveV3YieldSource.tokenAddress();
+    const tokenAddress = await aaveV3YieldSource.depositToken();
     const userAddress = user.address;
 
     await usdcToken.mint(userAddress, amount);
@@ -359,7 +359,7 @@ describe('AaveV3YieldSource', () => {
 
     beforeEach(async () => {
       amount = toWei('100');
-      tokenAddress = await aaveV3YieldSource.tokenAddress();
+      tokenAddress = await aaveV3YieldSource.depositToken();
     });
 
     it('should supply assets if totalSupply is 0', async () => {
