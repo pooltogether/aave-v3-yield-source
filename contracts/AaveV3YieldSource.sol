@@ -33,7 +33,7 @@ contract AaveV3YieldSource is ERC20, IYieldSource, Manageable, ReentrancyGuard {
    * @param poolAddressesProviderRegistry Aave poolAddressesProviderRegistry address
    * @param name Token name for the underlying ERC20 shares
    * @param symbol Token symbol for the underlying ERC20 shares
-   * @param decimals Number of decimals the shares (inhereted ERC20) will have. Same as underlying asset to ensure sane exchange rates for shares.
+   * @param decimals Number of decimals the shares (inherited ERC20) will have. Same as underlying asset to ensure sane exchange rates for shares.
    * @param owner Owner of this contract
    */
   event AaveV3YieldSourceInitialized(
@@ -154,7 +154,7 @@ contract AaveV3YieldSource is ERC20, IYieldSource, Manageable, ReentrancyGuard {
    * @param _poolAddressesProviderRegistry Aave poolAddressesProviderRegistry address
    * @param _name Token name for the underlying ERC20 shares
    * @param _symbol Token symbol for the underlying ERC20 shares
-   * @param decimals_ Number of decimals the shares (inhereted ERC20) will have. Same as underlying asset to ensure sane exchange rates for shares.
+   * @param decimals_ Number of decimals the shares (inherited ERC20) will have. Same as underlying asset to ensure sane exchange rates for shares.
    * @param _owner Owner of this contract
    */
   constructor(
