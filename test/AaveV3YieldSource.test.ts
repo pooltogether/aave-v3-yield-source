@@ -228,7 +228,7 @@ describe('AaveV3YieldSource', () => {
   });
 
   describe('decimals()', () => {
-    it('should return the ERC30 token decimals number', async () => {
+    it('should return the ERC20 token decimals number', async () => {
       expect(await aaveV3YieldSource.decimals()).to.equal(DECIMALS);
     });
   });
