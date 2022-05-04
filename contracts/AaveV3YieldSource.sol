@@ -166,20 +166,17 @@ contract AaveV3YieldSource is ERC20, IYieldSource, Manageable, ReentrancyGuard {
     uint8 decimals_,
     address _owner
   ) Ownable(_owner) ERC20(_name, _symbol) ReentrancyGuard() {
-    require(address(_aToken) != address(0), "AaveV3YS/aToken-not-zero-address");
-    aToken = _aToken;
-    _tokenAddress = address(_aToken.UNDERLYING_ASSET_ADDRESS());
-
-    require(address(_rewardsController) != address(0), "AaveV3YS/RC-not-zero-address");
-    rewardsController = _rewardsController;
-
-    require(address(_poolAddressesProviderRegistry) != address(0), "AaveV3YS/PR-not-zero-address");
-    poolAddressesProviderRegistry = _poolAddressesProviderRegistry;
-
     require(_owner != address(0), "AaveV3YS/owner-not-zero-address");
-
+    require(address(_aToken) != address(0), "AaveV3YS/aToken-not-zero-address");
     require(decimals_ > 0, "AaveV3YS/decimals-gt-zero");
+    require(address(_rewardsController) != address(0), "AaveV3YS/RC-not-zero-address");
+    require(address(_poolAddressesProviderRegistry) != address(0), "AaveV3YS/PR-not-zero-address");
+
+    aToken = _aToken;
     _decimals = decimals_;
+    _tokenAddress = address(_aToken.UNDERLYING_ASSET_ADDRESS());
+    rewardsController = _rewardsController;
+    poolAddressesProviderRegistry = _poolAddressesProviderRegistry;
 
     // Approve once for max amount
     IERC20(_tokenAddress).safeApprove(address(_pool()), type(uint256).max);
