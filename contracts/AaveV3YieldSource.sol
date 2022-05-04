@@ -366,7 +366,7 @@ contract AaveV3YieldSource is ERC20, IYieldSource, Manageable, ReentrancyGuard {
   function _tokenToShares(uint256 _tokens) internal view returns (uint256) {
     uint256 _supply = totalSupply();
 
-    // shares = (tokens * totalShares) / yieldSourceATokenTotalSupply
+    // shares = (tokens * totalShares) / yieldSourceBalanceOfAToken
     return _supply == 0 ? _tokens : (_tokens * _supply) / aToken.balanceOf(address(this));
   }
 
@@ -378,7 +378,7 @@ contract AaveV3YieldSource is ERC20, IYieldSource, Manageable, ReentrancyGuard {
   function _sharesToToken(uint256 _shares) internal view returns (uint256) {
     uint256 _supply = totalSupply();
 
-    // tokens = (shares * yieldSourceATokenTotalSupply) / totalShares
+    // tokens = (shares * yieldSourceBalanceOfAToken) / totalShares
     return _supply == 0 ? _shares : (_shares * aToken.balanceOf(address(this))) / _supply;
   }
 
