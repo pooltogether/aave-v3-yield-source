@@ -235,12 +235,13 @@ contract AaveV3YieldSource is ERC20, IYieldSource, Manageable, ReentrancyGuard {
     uint256 _shares = _tokenToShares(_depositAmount);
     _requireSharesGTZero(_shares);
 
-    IERC20(_tokenAddress).safeTransferFrom(msg.sender, address(this), _depositAmount);
-    _pool().supply(_tokenAddress, _depositAmount, address(this), REFERRAL_CODE);
+    uint256 _tokenAmount = _sharesToToken(_shares);
+    IERC20(_tokenAddress).safeTransferFrom(msg.sender, address(this), _tokenAmount);
+    _pool().supply(_tokenAddress, _tokenAmount, address(this), REFERRAL_CODE);
 
     _mint(_to, _shares);
 
-    emit SuppliedTokenTo(msg.sender, _shares, _depositAmount, _to);
+    emit SuppliedTokenTo(msg.sender, _shares, _tokenAmount, _to);
   }
 
   /**
