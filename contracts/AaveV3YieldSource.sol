@@ -203,7 +203,7 @@ contract AaveV3YieldSource is ERC20, IYieldSource, Manageable, ReentrancyGuard {
    * @param _user Address of the user to get balance of token for
    * @return The underlying balance of asset tokens.
    */
-  function balanceOfToken(address _user) external override returns (uint256) {
+  function balanceOfToken(address _user) external view override returns (uint256) {
     return _sharesToToken(balanceOf(_user));
   }
 
