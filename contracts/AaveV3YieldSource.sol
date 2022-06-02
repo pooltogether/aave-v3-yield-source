@@ -11,7 +11,6 @@ import { IRewardsController } from "@aave/periphery-v3/contracts/rewards/interfa
 import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import { SafeMath } from "@openzeppelin/contracts/utils/math/SafeMath.sol";
 import { ReentrancyGuard } from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
 import { Manageable, Ownable } from "@pooltogether/owner-manager-contracts/contracts/Manageable.sol";
@@ -23,7 +22,6 @@ import { IYieldSource } from "@pooltogether/yield-source-interface/contracts/IYi
  * @notice Yield Source for a PoolTogether prize pool that generates yield by depositing into Aave V3.
  */
 contract AaveV3YieldSource is ERC20, IYieldSource, Manageable, ReentrancyGuard {
-  using SafeMath for uint256;
   using SafeERC20 for IERC20;
 
   /* ============ Events ============ */
@@ -259,7 +257,7 @@ contract AaveV3YieldSource is ERC20, IYieldSource, Manageable, ReentrancyGuard {
     _pool().withdraw(_underlyingAssetAddress, _redeemAmount, address(this));
     uint256 _afterBalance = _assetToken.balanceOf(address(this));
 
-    uint256 _balanceDiff = _afterBalance.sub(_beforeBalance);
+    uint256 _balanceDiff = _afterBalance - _beforeBalance;
     _assetToken.safeTransfer(msg.sender, _balanceDiff);
 
     emit RedeemedToken(msg.sender, _shares, _redeemAmount);
@@ -365,7 +363,7 @@ contract AaveV3YieldSource is ERC20, IYieldSource, Manageable, ReentrancyGuard {
     uint256 _supply = totalSupply();
 
     // shares = (tokens * totalShares) / yieldSourceATokenTotalSupply
-    return _supply == 0 ? _tokens : _tokens.mul(_supply).div(aToken.balanceOf(address(this)));
+    return _supply == 0 ? _tokens : (_tokens * _supply) / aToken.balanceOf(address(this));
   }
 
   /**
@@ -377,7 +375,7 @@ contract AaveV3YieldSource is ERC20, IYieldSource, Manageable, ReentrancyGuard {
     uint256 _supply = totalSupply();
 
     // tokens = (shares * yieldSourceATokenTotalSupply) / totalShares
-    return _supply == 0 ? _shares : _shares.mul(aToken.balanceOf(address(this))).div(_supply);
+    return _supply == 0 ? _shares : (_shares * aToken.balanceOf(address(this))) / _supply;
   }
 
   /**
