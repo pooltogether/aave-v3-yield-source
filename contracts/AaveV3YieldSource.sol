@@ -43,7 +43,7 @@ contract AaveV3YieldSource is ERC20, IYieldSource, Manageable, ReentrancyGuard {
     string name,
     string symbol,
     uint8 decimals,
-    address owner
+    address indexed owner
   );
 
   /**
