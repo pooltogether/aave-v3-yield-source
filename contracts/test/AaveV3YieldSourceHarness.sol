@@ -42,10 +42,6 @@ contract AaveV3YieldSourceHarness is AaveV3YieldSource {
     return _tokenAddress();
   }
 
-  function poolProvider() external view returns (IPoolAddressesProvider) {
-    return _poolProvider();
-  }
-
   function pool() external view returns (IPool) {
     return _pool();
   }

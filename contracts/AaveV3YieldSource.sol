@@ -387,21 +387,15 @@ contract AaveV3YieldSource is ERC20, IYieldSource, Manageable, ReentrancyGuard {
   }
 
   /**
-   * @notice Retrieves Aave PoolAddressesProvider address.
-   * @return A reference to PoolAddressesProvider interface.
-   */
-  function _poolProvider() internal view returns (IPoolAddressesProvider) {
-    return
-      IPoolAddressesProvider(
-        poolAddressesProviderRegistry.getAddressesProvidersList()[ADDRESSES_PROVIDER_ID]
-      );
-  }
-
-  /**
    * @notice Retrieves Aave Pool address.
    * @return A reference to Pool interface.
    */
   function _pool() internal view returns (IPool) {
-    return IPool(_poolProvider().getPool());
+    return
+      IPool(
+        IPoolAddressesProvider(
+          poolAddressesProviderRegistry.getAddressesProvidersList()[ADDRESSES_PROVIDER_ID]
+        ).getPool()
+      );
   }
 }
