@@ -133,6 +133,9 @@ contract AaveV3YieldSource is ERC20, IYieldSource, Manageable, ReentrancyGuard {
   /// @notice Underlying asset token address.
   address private immutable _tokenAddress;
 
+  /// @notice Underlying asset unit.
+  uint256 private immutable _tokenUnit;
+
   /// @notice ERC20 token decimals.
   uint8 private immutable _decimals;
 
@@ -174,6 +177,7 @@ contract AaveV3YieldSource is ERC20, IYieldSource, Manageable, ReentrancyGuard {
 
     aToken = _aToken;
     _decimals = decimals_;
+    _tokenUnit = 10**decimals_;
     _tokenAddress = address(_aToken.UNDERLYING_ASSET_ADDRESS());
     rewardsController = _rewardsController;
     poolAddressesProviderRegistry = _poolAddressesProviderRegistry;
@@ -229,7 +233,7 @@ contract AaveV3YieldSource is ERC20, IYieldSource, Manageable, ReentrancyGuard {
    */
   function supplyTokenTo(uint256 _depositAmount, address _to) external override nonReentrant {
     uint256 _shares = _tokenToShares(_depositAmount);
-    require(_shares > 0, "AaveV3YS/shares-gt-zero");
+    _requireSharesGTZero(_shares);
 
     IERC20(_tokenAddress).safeTransferFrom(msg.sender, address(this), _depositAmount);
     _pool().supply(_tokenAddress, _depositAmount, address(this), REFERRAL_CODE);
@@ -247,11 +251,12 @@ contract AaveV3YieldSource is ERC20, IYieldSource, Manageable, ReentrancyGuard {
    * @return The actual amount of asset tokens that were redeemed.
    */
   function redeemToken(uint256 _redeemAmount) external override nonReentrant returns (uint256) {
-    IERC20 _assetToken = IERC20(_tokenAddress);
-
     uint256 _shares = _tokenToShares(_redeemAmount);
+    _requireSharesGTZero(_shares);
+
     _burn(msg.sender, _shares);
 
+    IERC20 _assetToken = IERC20(_tokenAddress);
     uint256 _beforeBalance = _assetToken.balanceOf(address(this));
     _pool().withdraw(_tokenAddress, _redeemAmount, address(this));
 
@@ -341,7 +346,15 @@ contract AaveV3YieldSource is ERC20, IYieldSource, Manageable, ReentrancyGuard {
   /* ============ Internal Functions ============ */
 
   /**
-   * @notice Check that the token address passed is not the aToken address.
+   * @notice Checks that the amount of shares is greater than zero.
+   * @param _shares Amount of shares to check
+   */
+  function _requireSharesGTZero(uint256 _shares) internal pure {
+    require(_shares > 0, "AaveV3YS/shares-gt-zero");
+  }
+
+  /**
+   * @notice Checks that the token address passed is not the aToken address.
    * @param _token Address of the ERC20 token to check
    * @param _errorMessage Error message to be thrown if the token is the aToken
    */
@@ -350,11 +363,23 @@ contract AaveV3YieldSource is ERC20, IYieldSource, Manageable, ReentrancyGuard {
   }
 
   /**
-   * @notice Check that the token address passed for allowance is not the aToken address.
+   * @notice Checks that the token address passed for allowance is not the aToken address.
    * @param _token Address of the ERC20 token to check
    */
   function _requireNotATokenAllowance(address _token) internal view {
     _requireNotAToken(_token, "AaveV3YS/forbid-aToken-allowance");
+  }
+
+  /**
+   * @notice Calculates the price of a full share.
+   * @dev We use this calculation to ensure that the price per share can't be manipulated.
+   * @return The current price per share
+   */
+  function _pricePerShare() internal view returns (uint256) {
+    uint256 _supply = totalSupply();
+
+    // pricePerShare = (token * yieldSourceBalanceOfAToken) / totalSupply
+    return _supply == 0 ? _tokenUnit : (_tokenUnit * aToken.balanceOf(address(this))) / _supply;
   }
 
   /**
@@ -363,10 +388,8 @@ contract AaveV3YieldSource is ERC20, IYieldSource, Manageable, ReentrancyGuard {
    * @return Number of shares.
    */
   function _tokenToShares(uint256 _tokens) internal view returns (uint256) {
-    uint256 _supply = totalSupply();
-
-    // shares = (tokens * totalShares) / yieldSourceBalanceOfAToken
-    return _supply == 0 ? _tokens : (_tokens * _supply) / aToken.balanceOf(address(this));
+    // shares = (tokens * totalSupply) / yieldSourceBalanceOfAToken
+    return _tokens == 0 ? _tokens : (_tokens * _tokenUnit) / _pricePerShare();
   }
 
   /**
@@ -375,10 +398,8 @@ contract AaveV3YieldSource is ERC20, IYieldSource, Manageable, ReentrancyGuard {
    * @return Number of asset tokens.
    */
   function _sharesToToken(uint256 _shares) internal view returns (uint256) {
-    uint256 _supply = totalSupply();
-
-    // tokens = (shares * yieldSourceBalanceOfAToken) / totalShares
-    return _supply == 0 ? _shares : (_shares * aToken.balanceOf(address(this))) / _supply;
+    // tokens = (shares * yieldSourceBalanceOfAToken) / totalSupply
+    return _shares == 0 ? _shares : (_shares * _pricePerShare()) / _tokenUnit;
   }
 
   /**
