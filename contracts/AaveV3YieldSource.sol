@@ -303,7 +303,7 @@ contract AaveV3YieldSource is ERC20, IYieldSource, Manageable, ReentrancyGuard {
     address _spender,
     uint256 _amount
   ) external onlyManagerOrOwner {
-    _requireNotATokenAllowance(address(_token));
+    _requireNotAToken(address(_token));
     _token.safeDecreaseAllowance(_spender, _amount);
     emit DecreasedERC20Allowance(msg.sender, _spender, _amount, _token);
   }
@@ -322,7 +322,7 @@ contract AaveV3YieldSource is ERC20, IYieldSource, Manageable, ReentrancyGuard {
     address _spender,
     uint256 _amount
   ) external onlyManagerOrOwner {
-    _requireNotATokenAllowance(address(_token));
+    _requireNotAToken(address(_token));
     _token.safeIncreaseAllowance(_spender, _amount);
     emit IncreasedERC20Allowance(msg.sender, _spender, _amount, _token);
   }
@@ -339,7 +339,7 @@ contract AaveV3YieldSource is ERC20, IYieldSource, Manageable, ReentrancyGuard {
     address _to,
     uint256 _amount
   ) external onlyManagerOrOwner {
-    _requireNotAToken(address(_token), "AaveV3YS/forbid-aToken-transfer");
+    _requireNotAToken(address(_token));
     _token.safeTransfer(_to, _amount);
     emit TransferredERC20(msg.sender, _to, _amount, _token);
   }
@@ -357,18 +357,9 @@ contract AaveV3YieldSource is ERC20, IYieldSource, Manageable, ReentrancyGuard {
   /**
    * @notice Checks that the token address passed is not the aToken address.
    * @param _token Address of the ERC20 token to check
-   * @param _errorMessage Error message to be thrown if the token is the aToken
    */
-  function _requireNotAToken(address _token, string memory _errorMessage) internal view {
-    require(_token != address(aToken), _errorMessage);
-  }
-
-  /**
-   * @notice Checks that the token address passed for allowance is not the aToken address.
-   * @param _token Address of the ERC20 token to check
-   */
-  function _requireNotATokenAllowance(address _token) internal view {
-    _requireNotAToken(_token, "AaveV3YS/forbid-aToken-allowance");
+  function _requireNotAToken(address _token) internal view {
+    require(_token != address(aToken), "AaveV3YS/forbid-aToken-change");
   }
 
   /**

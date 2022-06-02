@@ -562,7 +562,7 @@ describe('AaveV3YieldSource', () => {
         aaveV3YieldSource
           .connect(yieldSourceOwner)
           .increaseERC20Allowance(aToken.address, wallet2.address, toWei('10')),
-      ).to.be.revertedWith('AaveV3YS/forbid-aToken-allowance');
+      ).to.be.revertedWith('AaveV3YS/forbid-aToken-change');
     });
 
     it('should fail to increase allowance if not yieldSourceOwner or assetManager', async () => {
@@ -616,7 +616,7 @@ describe('AaveV3YieldSource', () => {
         aaveV3YieldSource
           .connect(yieldSourceOwner)
           .decreaseERC20Allowance(aToken.address, wallet2.address, MaxUint256),
-      ).to.be.revertedWith('AaveV3YS/forbid-aToken-allowance');
+      ).to.be.revertedWith('AaveV3YS/forbid-aToken-change');
     });
 
     it('should fail to decrease allowance if not yieldSourceOwner or assetManager', async () => {
@@ -656,7 +656,7 @@ describe('AaveV3YieldSource', () => {
         aaveV3YieldSource
           .connect(yieldSourceOwner)
           .transferERC20(aToken.address, wallet2.address, toWei('10')),
-      ).to.be.revertedWith('AaveV3YS/forbid-aToken-transfer');
+      ).to.be.revertedWith('AaveV3YS/forbid-aToken-change');
     });
 
     it('should fail to transferERC20 if not yieldSourceOwner or assetManager', async () => {
