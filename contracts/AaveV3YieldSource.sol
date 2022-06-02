@@ -270,9 +270,8 @@ contract AaveV3YieldSource is ERC20, IYieldSource, Manageable, ReentrancyGuard {
    * @notice Claims the accrued rewards for the aToken, accumulating any pending rewards.
    * @dev Only callable by the owner or manager.
    * @param _to Address where the claimed rewards will be sent
-   * @return True if operation was successful.
    */
-  function claimRewards(address _to) external onlyManagerOrOwner returns (bool) {
+  function claimRewards(address _to) external onlyManagerOrOwner {
     require(_to != address(0), "AaveV3YS/payee-not-zero-address");
 
     address[] memory _assets = new address[](1);
@@ -282,7 +281,6 @@ contract AaveV3YieldSource is ERC20, IYieldSource, Manageable, ReentrancyGuard {
       .claimAllRewards(_assets, _to);
 
     emit Claimed(msg.sender, _to, _rewardsList, _claimedAmounts);
-    return true;
   }
 
   /**
