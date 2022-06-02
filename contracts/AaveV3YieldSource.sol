@@ -257,7 +257,12 @@ contract AaveV3YieldSource is ERC20, IYieldSource, Manageable, ReentrancyGuard {
     _pool().withdraw(_underlyingAssetAddress, _redeemAmount, address(this));
     uint256 _afterBalance = _assetToken.balanceOf(address(this));
 
-    uint256 _balanceDiff = _afterBalance - _beforeBalance;
+    uint256 _balanceDiff;
+
+    unchecked {
+      _balanceDiff = _afterBalance - _beforeBalance;
+    }
+
     _assetToken.safeTransfer(msg.sender, _balanceDiff);
 
     emit RedeemedToken(msg.sender, _shares, _redeemAmount);
