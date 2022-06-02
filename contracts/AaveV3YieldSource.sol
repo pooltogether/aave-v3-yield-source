@@ -130,6 +130,9 @@ contract AaveV3YieldSource is ERC20, IYieldSource, Manageable, ReentrancyGuard {
   /// @notice Aave poolAddressesProviderRegistry address.
   IPoolAddressesProviderRegistry public immutable poolAddressesProviderRegistry;
 
+  /// @notice Underlying asset token address.
+  address private immutable _tokenAddress;
+
   /// @notice ERC20 token decimals.
   uint8 private immutable _decimals;
 
@@ -165,6 +168,7 @@ contract AaveV3YieldSource is ERC20, IYieldSource, Manageable, ReentrancyGuard {
   ) Ownable(_owner) ERC20(_name, _symbol) ReentrancyGuard() {
     require(address(_aToken) != address(0), "AaveV3YS/aToken-not-zero-address");
     aToken = _aToken;
+    _tokenAddress = address(_aToken.UNDERLYING_ASSET_ADDRESS());
 
     require(address(_rewardsController) != address(0), "AaveV3YS/RC-not-zero-address");
     rewardsController = _rewardsController;
@@ -178,7 +182,7 @@ contract AaveV3YieldSource is ERC20, IYieldSource, Manageable, ReentrancyGuard {
     _decimals = decimals_;
 
     // Approve once for max amount
-    IERC20(_aToken.UNDERLYING_ASSET_ADDRESS()).safeApprove(address(_pool()), type(uint256).max);
+    IERC20(_tokenAddress).safeApprove(address(_pool()), type(uint256).max);
 
     emit AaveV3YieldSourceInitialized(
       _aToken,
@@ -207,7 +211,7 @@ contract AaveV3YieldSource is ERC20, IYieldSource, Manageable, ReentrancyGuard {
    * @return The ERC20 asset token address.
    */
   function depositToken() public view override returns (address) {
-    return _tokenAddress();
+    return _tokenAddress;
   }
 
   /**
@@ -230,9 +234,8 @@ contract AaveV3YieldSource is ERC20, IYieldSource, Manageable, ReentrancyGuard {
     uint256 _shares = _tokenToShares(_depositAmount);
     require(_shares > 0, "AaveV3YS/shares-gt-zero");
 
-    address _underlyingAssetAddress = _tokenAddress();
-    IERC20(_underlyingAssetAddress).safeTransferFrom(msg.sender, address(this), _depositAmount);
-    _pool().supply(_underlyingAssetAddress, _depositAmount, address(this), REFERRAL_CODE);
+    IERC20(_tokenAddress).safeTransferFrom(msg.sender, address(this), _depositAmount);
+    _pool().supply(_tokenAddress, _depositAmount, address(this), REFERRAL_CODE);
 
     _mint(_to, _shares);
 
@@ -247,14 +250,13 @@ contract AaveV3YieldSource is ERC20, IYieldSource, Manageable, ReentrancyGuard {
    * @return The actual amount of asset tokens that were redeemed.
    */
   function redeemToken(uint256 _redeemAmount) external override nonReentrant returns (uint256) {
-    address _underlyingAssetAddress = _tokenAddress();
-    IERC20 _assetToken = IERC20(_underlyingAssetAddress);
+    IERC20 _assetToken = IERC20(_tokenAddress);
 
     uint256 _shares = _tokenToShares(_redeemAmount);
     _burn(msg.sender, _shares);
 
     uint256 _beforeBalance = _assetToken.balanceOf(address(this));
-    _pool().withdraw(_underlyingAssetAddress, _redeemAmount, address(this));
+    _pool().withdraw(_tokenAddress, _redeemAmount, address(this));
     uint256 _afterBalance = _assetToken.balanceOf(address(this));
 
     uint256 _balanceDiff;
@@ -381,14 +383,6 @@ contract AaveV3YieldSource is ERC20, IYieldSource, Manageable, ReentrancyGuard {
 
     // tokens = (shares * yieldSourceATokenTotalSupply) / totalShares
     return _supply == 0 ? _shares : (_shares * aToken.balanceOf(address(this))) / _supply;
-  }
-
-  /**
-   * @notice Returns the underlying asset token address.
-   * @return Underlying asset token address.
-   */
-  function _tokenAddress() internal view returns (address) {
-    return aToken.UNDERLYING_ASSET_ADDRESS();
   }
 
   /**
