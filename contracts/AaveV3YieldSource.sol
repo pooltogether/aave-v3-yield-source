@@ -124,13 +124,13 @@ contract AaveV3YieldSource is ERC20, IYieldSource, Manageable, ReentrancyGuard {
   /* ============ Variables ============ */
 
   /// @notice Yield-bearing Aave aToken address.
-  IAToken public aToken;
+  IAToken public immutable aToken;
 
   /// @notice Aave RewardsController address.
-  IRewardsController public rewardsController;
+  IRewardsController public immutable rewardsController;
 
   /// @notice Aave poolAddressesProviderRegistry address.
-  IPoolAddressesProviderRegistry public poolAddressesProviderRegistry;
+  IPoolAddressesProviderRegistry public immutable poolAddressesProviderRegistry;
 
   /// @notice ERC20 token decimals.
   uint8 private immutable _decimals;
@@ -180,7 +180,7 @@ contract AaveV3YieldSource is ERC20, IYieldSource, Manageable, ReentrancyGuard {
     _decimals = decimals_;
 
     // Approve once for max amount
-    IERC20(_tokenAddress()).safeApprove(address(_pool()), type(uint256).max);
+    IERC20(_aToken.UNDERLYING_ASSET_ADDRESS()).safeApprove(address(_pool()), type(uint256).max);
 
     emit AaveV3YieldSourceInitialized(
       _aToken,
