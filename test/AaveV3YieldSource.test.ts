@@ -79,15 +79,18 @@ describe('AaveV3YieldSource', () => {
     await usdcToken.mint(userAddress, amount);
     await usdcToken.connect(user).approve(aaveV3YieldSource.address, MaxUint256);
 
-    await pool.mock.supply
-      .withArgs(tokenAddress, amount, aaveV3YieldSource.address, REFERRAL_CODE)
-      .returns();
-
     await aToken.mock.balanceOf
       .withArgs(aaveV3YieldSource.address)
       .returns(aTokenTotalSupplyBefore);
 
-    await aaveV3YieldSource.connect(user).supplyTokenTo(amount, userAddress);
+    const shares = await aaveV3YieldSource.tokenToShares(amount);
+    const supplyAmount = await aaveV3YieldSource.sharesToToken(shares);
+
+    await pool.mock.supply
+      .withArgs(tokenAddress, supplyAmount, aaveV3YieldSource.address, REFERRAL_CODE)
+      .returns();
+
+    await aaveV3YieldSource.connect(user).supplyTokenTo(supplyAmount, userAddress);
 
     await aToken.mock.balanceOf.withArgs(aaveV3YieldSource.address).returns(aTokenTotalSupplyAfter);
   };
@@ -397,7 +400,7 @@ describe('AaveV3YieldSource', () => {
       );
 
       expect(await aaveV3YieldSource.callStatic.balanceOfToken(wallet2.address)).to.be.gte(
-        amount.sub(toWei('0.1')),
+        amount.sub(toWei('0.0001')),
       );
     });
 
@@ -450,7 +453,7 @@ describe('AaveV3YieldSource', () => {
       ).to.be.revertedWith('ERC20: burn amount exceeds balance');
     });
 
-    it('should fail to redeem if amount superior to balance', async () => {
+    it('should fail to redeem if amount is greater than balance', async () => {
       const yieldSourceOwnerLowBalance = toWei('10');
 
       await aaveV3YieldSource.mint(yieldSourceOwner.address, yieldSourceOwnerLowBalance);
