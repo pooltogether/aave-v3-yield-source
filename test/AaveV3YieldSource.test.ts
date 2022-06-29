@@ -9,22 +9,23 @@ import { ethers, waffle } from 'hardhat';
 import {
   AaveV3YieldSourceHarness,
   AaveV3YieldSourceHarness__factory,
+  AavePool,
+  ATokenMintable,
   ERC20Mintable,
 } from '../types';
 
-import IAToken from '../abis/IAToken.json';
 import IRewardsController from '../abis/IRewardsController.json';
-import IPool from '../abis/IPool.json';
 import IPoolAddressesProvider from '../abis/IPoolAddressesProvider.json';
 import IPoolAddressesProviderRegistry from '../abis/IPoolAddressesProviderRegistry.json';
 import SafeERC20Wrapper from '../abis/SafeERC20Wrapper.json';
 
 const { constants, getContractFactory, getSigners, utils } = ethers;
-const { AddressZero, MaxUint256 } = constants;
-const { parseEther: toWei, parseUnits } = utils;
+const { AddressZero, MaxUint256, Zero } = constants;
+const { parseUnits } = utils;
 
 const DECIMALS = 6;
-const REFERRAL_CODE = 188;
+
+const toWei = (amount: string) => parseUnits(amount, DECIMALS);
 
 describe('AaveV3YieldSource', () => {
   let contractsOwner: Signer;
@@ -32,9 +33,9 @@ describe('AaveV3YieldSource', () => {
   let wallet2: SignerWithAddress;
   let attacker: SignerWithAddress;
 
-  let aToken: MockContract;
+  let aToken: ATokenMintable;
   let rewardsController: MockContract;
-  let pool: MockContract;
+  let pool: AavePool;
   let poolAddressesProvider: MockContract;
   let poolAddressesProviderRegistry: MockContract;
 
@@ -67,39 +68,27 @@ describe('AaveV3YieldSource', () => {
     );
   };
 
-  const supplyTokenTo = async (
-    user: SignerWithAddress,
-    amount: BigNumber,
-    aTokenTotalSupplyBefore: BigNumber,
-    aTokenTotalSupplyAfter: BigNumber,
-  ) => {
-    const tokenAddress = await aaveV3YieldSource.depositToken();
+  const supplyTokenTo = async (user: SignerWithAddress, amount: BigNumber) => {
     const userAddress = user.address;
 
     await usdcToken.mint(userAddress, amount);
     await usdcToken.connect(user).approve(aaveV3YieldSource.address, MaxUint256);
 
-    await aToken.mock.balanceOf
-      .withArgs(aaveV3YieldSource.address)
-      .returns(aTokenTotalSupplyBefore);
-
-    const shares = await aaveV3YieldSource.tokenToShares(amount);
-    const supplyAmount = await aaveV3YieldSource.sharesToToken(shares);
-
-    await pool.mock.supply
-      .withArgs(tokenAddress, supplyAmount, aaveV3YieldSource.address, REFERRAL_CODE)
-      .returns();
-
-    await aaveV3YieldSource.connect(user).supplyTokenTo(supplyAmount, userAddress);
-
-    await aToken.mock.balanceOf.withArgs(aaveV3YieldSource.address).returns(aTokenTotalSupplyAfter);
+    await aaveV3YieldSource.connect(user).supplyTokenTo(amount, userAddress);
   };
 
   const sharesToToken = async (shares: BigNumber, yieldSourceTotalSupply: BigNumber) => {
-    const totalShares = await aaveV3YieldSource.callStatic.totalSupply();
+    const totalShares = await aaveV3YieldSource.totalSupply();
 
     // tokens = (shares * yieldSourceBalanceOfAToken) / totalSupply
     return shares.mul(yieldSourceTotalSupply).div(totalShares);
+  };
+
+  const tokenToShares = async (token: BigNumber, yieldSourceTotalSupply: BigNumber) => {
+    const totalShares = await aaveV3YieldSource.totalSupply();
+
+    // shares = (tokens * totalSupply) / yieldSourceBalanceOfAToken
+    return token.mul(totalShares).div(yieldSourceTotalSupply);
   };
 
   beforeEach(async () => {
@@ -111,12 +100,20 @@ describe('AaveV3YieldSource', () => {
 
     erc20Token = await deployMockContract(contractsOwner, SafeERC20Wrapper);
 
-    usdcToken = (await ERC20MintableContract.deploy('USD Coin', 'USDC', 6)) as ERC20Mintable;
+    usdcToken = (await ERC20MintableContract.deploy('USD Coin', 'USDC', DECIMALS)) as ERC20Mintable;
 
-    aToken = await deployMockContract(contractsOwner, IAToken);
-    await aToken.mock.UNDERLYING_ASSET_ADDRESS.returns(usdcToken.address);
+    const ATokenMintableContract = await getContractFactory('ATokenMintable', contractsOwner);
 
-    pool = await deployMockContract(contractsOwner, IPool);
+    aToken = (await ATokenMintableContract.deploy(
+      usdcToken.address,
+      'Aave interest bearing USDC',
+      'aUSDC',
+      DECIMALS,
+    )) as ATokenMintable;
+
+    const AavePoolContract = await getContractFactory('AavePool', contractsOwner);
+
+    pool = (await AavePoolContract.deploy(usdcToken.address, aToken.address)) as AavePool;
 
     rewardsController = await deployMockContract(contractsOwner, IRewardsController);
 
@@ -252,29 +249,27 @@ describe('AaveV3YieldSource', () => {
       const firstAmount = toWei('100');
       const yieldSourceTotalSupply = firstAmount.mul(2);
 
-      await supplyTokenTo(yieldSourceOwner, firstAmount, toWei('0'), firstAmount);
-      await supplyTokenTo(yieldSourceOwner, firstAmount, firstAmount, yieldSourceTotalSupply);
+      await supplyTokenTo(yieldSourceOwner, firstAmount);
+      await supplyTokenTo(yieldSourceOwner, firstAmount);
 
-      await aToken.mock.balanceOf
-        .withArgs(aaveV3YieldSource.address)
-        .returns(yieldSourceTotalSupply);
-
-      const shares = await aaveV3YieldSource.callStatic.balanceOf(yieldSourceOwner.address);
+      const shares = await aaveV3YieldSource.balanceOf(yieldSourceOwner.address);
       const tokens = await sharesToToken(shares, yieldSourceTotalSupply);
 
-      expect(await aaveV3YieldSource.callStatic.balanceOfToken(yieldSourceOwner.address)).to.equal(
-        tokens,
-      );
+      expect(await aaveV3YieldSource.balanceOfToken(yieldSourceOwner.address)).to.equal(tokens);
     });
   });
 
   describe('_tokenToShares()', () => {
     it('should return shares amount', async () => {
-      await aaveV3YieldSource.mint(yieldSourceOwner.address, toWei('100'));
-      await aaveV3YieldSource.mint(wallet2.address, toWei('100'));
-      await aToken.mock.balanceOf.withArgs(aaveV3YieldSource.address).returns(toWei('1000'));
+      const amount = toWei('100');
 
-      expect(await aaveV3YieldSource.tokenToShares(toWei('10'))).to.equal(toWei('2'));
+      await supplyTokenTo(yieldSourceOwner, amount);
+      await supplyTokenTo(wallet2, amount);
+
+      const tokens = toWei('10');
+      const shares = await tokenToShares(tokens, amount.mul(2));
+
+      expect(await aaveV3YieldSource.tokenToShares(tokens)).to.equal(shares);
     });
 
     it('should return 0 if tokens param is 0', async () => {
@@ -286,36 +281,40 @@ describe('AaveV3YieldSource', () => {
     });
 
     it('should return shares even if aToken total supply is very small', async () => {
-      await aaveV3YieldSource.mint(yieldSourceOwner.address, toWei('1'));
-      await aToken.mock.balanceOf.withArgs(aaveV3YieldSource.address).returns(toWei('0.000005'));
+      const amount = toWei('0.000005');
+      const shares = toWei('1');
 
-      expect(await aaveV3YieldSource.tokenToShares(toWei('0.000005'))).to.equal(toWei('1'));
+      await aaveV3YieldSource.mint(yieldSourceOwner.address, shares);
+      await aToken.mint(aaveV3YieldSource.address, amount);
+
+      expect(await aaveV3YieldSource.tokenToShares(amount)).to.equal(shares);
     });
 
     it('should return shares even if aToken total supply increases', async () => {
-      await aaveV3YieldSource.mint(yieldSourceOwner.address, toWei('100'));
-      await aaveV3YieldSource.mint(wallet2.address, toWei('100'));
-      await aToken.mock.balanceOf.withArgs(aaveV3YieldSource.address).returns(toWei('100'));
+      const amount = toWei('100');
+      const tokens = toWei('1');
 
-      expect(await aaveV3YieldSource.tokenToShares(toWei('1'))).to.equal(toWei('2'));
+      await aaveV3YieldSource.mint(yieldSourceOwner.address, amount);
+      await aaveV3YieldSource.mint(wallet2.address, amount);
+      await aToken.mint(aaveV3YieldSource.address, amount);
 
-      await aToken.mock.balanceOf
-        .withArgs(aaveV3YieldSource.address)
-        .returns(parseUnits('100', 36));
+      expect(await aaveV3YieldSource.tokenToShares(tokens)).to.equal(toWei('2'));
 
-      expect(await aaveV3YieldSource.tokenToShares(toWei('1'))).to.equal(2);
+      await aToken.mint(aaveV3YieldSource.address, parseUnits('100', 12).sub(amount));
+
+      expect(await aaveV3YieldSource.tokenToShares(tokens)).to.equal(2);
     });
 
     it('should fail to return shares if aToken total supply increases too much', async () => {
-      await aaveV3YieldSource.mint(yieldSourceOwner.address, toWei('100'));
-      await aaveV3YieldSource.mint(wallet2.address, toWei('100'));
-      await aToken.mock.balanceOf.withArgs(aaveV3YieldSource.address).returns(toWei('100'));
+      const amount = toWei('100');
+
+      await aaveV3YieldSource.mint(yieldSourceOwner.address, amount);
+      await aaveV3YieldSource.mint(wallet2.address, amount);
+      await aToken.mint(aaveV3YieldSource.address, amount);
 
       expect(await aaveV3YieldSource.tokenToShares(toWei('1'))).to.equal(toWei('2'));
 
-      await aToken.mock.balanceOf
-        .withArgs(aaveV3YieldSource.address)
-        .returns(parseUnits('100', 37));
+      await aToken.mint(aaveV3YieldSource.address, parseUnits('100', 13).sub(amount));
 
       await expect(aaveV3YieldSource.supplyTokenTo(toWei('1'), wallet2.address)).to.be.revertedWith(
         'AaveV3YS/shares-gt-zero',
@@ -325,38 +324,43 @@ describe('AaveV3YieldSource', () => {
 
   describe('_sharesToToken()', () => {
     it('should return tokens amount', async () => {
-      await aaveV3YieldSource.mint(yieldSourceOwner.address, toWei('100'));
-      await aaveV3YieldSource.mint(wallet2.address, toWei('100'));
-      await aToken.mock.balanceOf.withArgs(aaveV3YieldSource.address).returns(toWei('1000'));
+      const amount = toWei('100');
+
+      await aaveV3YieldSource.mint(yieldSourceOwner.address, amount);
+      await aaveV3YieldSource.mint(wallet2.address, amount);
+      await aToken.mint(aaveV3YieldSource.address, toWei('1000'));
 
       expect(await aaveV3YieldSource.sharesToToken(toWei('2'))).to.equal(toWei('10'));
     });
 
     it('should return shares if totalSupply is 0', async () => {
-      expect(await aaveV3YieldSource.sharesToToken(toWei('100'))).to.equal(toWei('100'));
+      const shares = toWei('100');
+      expect(await aaveV3YieldSource.sharesToToken(shares)).to.equal(shares);
     });
 
     it('should return tokens even if shares are very small', async () => {
-      await aaveV3YieldSource.mint(yieldSourceOwner.address, toWei('0.000000000000000005'));
-      await aToken.mock.balanceOf.withArgs(aaveV3YieldSource.address).returns(toWei('100'));
+      const shares = toWei('0.000005');
+      const tokens = toWei('100');
 
-      expect(await aaveV3YieldSource.sharesToToken(toWei('0.000000000000000005'))).to.equal(
-        toWei('100'),
-      );
+      await aaveV3YieldSource.mint(yieldSourceOwner.address, shares);
+      await aToken.mint(aaveV3YieldSource.address, tokens);
+
+      expect(await aaveV3YieldSource.sharesToToken(shares)).to.equal(tokens);
     });
 
     it('should return tokens even if aToken total supply increases', async () => {
-      await aaveV3YieldSource.mint(yieldSourceOwner.address, toWei('100'));
-      await aaveV3YieldSource.mint(wallet2.address, toWei('100'));
-      await aToken.mock.balanceOf.withArgs(aaveV3YieldSource.address).returns(toWei('100'));
+      const amount = toWei('100');
+      const tokens = toWei('1');
 
-      expect(await aaveV3YieldSource.sharesToToken(toWei('2'))).to.equal(toWei('1'));
+      await aaveV3YieldSource.mint(yieldSourceOwner.address, amount);
+      await aaveV3YieldSource.mint(wallet2.address, amount);
+      await aToken.mint(aaveV3YieldSource.address, amount);
 
-      await aToken.mock.balanceOf
-        .withArgs(aaveV3YieldSource.address)
-        .returns(parseUnits('100', 36));
+      expect(await aaveV3YieldSource.sharesToToken(toWei('2'))).to.equal(tokens);
 
-      expect(await aaveV3YieldSource.sharesToToken(2)).to.equal(toWei('1'));
+      await aToken.mint(aaveV3YieldSource.address, parseUnits('100', 12).sub(amount));
+
+      expect(await aaveV3YieldSource.sharesToToken(2)).to.equal(tokens);
     });
   });
 
@@ -370,48 +374,51 @@ describe('AaveV3YieldSource', () => {
     });
 
     it('should supply assets if totalSupply is 0', async () => {
-      await supplyTokenTo(yieldSourceOwner, amount, toWei('0'), amount);
+      await supplyTokenTo(yieldSourceOwner, amount);
       expect(await aaveV3YieldSource.totalSupply()).to.equal(amount);
     });
 
     it('should supply assets if totalSupply is not 0', async () => {
-      await supplyTokenTo(yieldSourceOwner, amount, toWei('0'), amount);
-      await supplyTokenTo(wallet2, amount, amount, amount.mul(2));
+      await supplyTokenTo(yieldSourceOwner, amount);
+      await supplyTokenTo(wallet2, amount);
+
       expect(await aaveV3YieldSource.totalSupply()).to.equal(amount.mul(2));
     });
 
-    it('should fail to manipulate shares price', async () => {
-      const attackAmount = BigNumber.from(10000000);
+    it('should fail to manipulate share price significantly', async () => {
+      const attackAmount = toWei('10');
       const aTokenAmount = toWei('1000');
+      const attackerBalance = attackAmount.add(aTokenAmount);
 
-      await supplyTokenTo(attacker, attackAmount, toWei('0'), attackAmount);
+      await supplyTokenTo(attacker, attackAmount);
 
-      // Attacker sends 1000 aTokens directly to the contract to manipulate shares price
-      await supplyTokenTo(
-        wallet2,
-        amount,
-        attackAmount.add(aTokenAmount),
-        amount.add(attackAmount).add(aTokenAmount),
-      );
+      // Attacker sends 1000 aTokens directly to the contract to manipulate share price
+      await aToken.mint(attacker.address, aTokenAmount);
+      await aToken.connect(attacker).approve(aaveV3YieldSource.address, aTokenAmount);
+      await aToken.connect(attacker).transfer(aaveV3YieldSource.address, aTokenAmount);
+
+      await supplyTokenTo(wallet2, amount);
+
+      expect(await aaveV3YieldSource.balanceOfToken(attacker.address)).to.equal(attackerBalance);
 
       // We account for a small loss in precision due to the attack
-      expect(await aaveV3YieldSource.callStatic.balanceOfToken(attacker.address)).to.be.gte(
-        attackAmount.add(aTokenAmount),
-      );
-
-      expect(await aaveV3YieldSource.callStatic.balanceOfToken(wallet2.address)).to.be.gte(
+      expect(await aaveV3YieldSource.balanceOfToken(wallet2.address)).to.be.gte(
         amount.sub(toWei('0.0001')),
       );
     });
 
-    it('should revert on error', async () => {
-      await pool.mock.deposit
-        .withArgs(tokenAddress, amount, aaveV3YieldSource.address, REFERRAL_CODE)
-        .reverts();
+    it('should succeed to manipulate share price significantly but users should not be able to deposit smaller amounts', async () => {
+      const attackAmount = BigNumber.from(1);
+      const aTokenAmount = toWei('1000');
 
-      await expect(
-        aaveV3YieldSource.supplyTokenTo(amount, aaveV3YieldSource.address),
-      ).to.be.revertedWith('');
+      await supplyTokenTo(attacker, attackAmount);
+
+      // Attacker sends 1000 aTokens directly to the contract to manipulate share price
+      await aToken.mint(attacker.address, aTokenAmount);
+      await aToken.connect(attacker).approve(aaveV3YieldSource.address, aTokenAmount);
+      await aToken.connect(attacker).transfer(aaveV3YieldSource.address, aTokenAmount);
+
+      await expect(supplyTokenTo(wallet2, amount)).to.be.revertedWith('AaveV3YS/shares-gt-zero');
     });
   });
 
@@ -425,24 +432,11 @@ describe('AaveV3YieldSource', () => {
     });
 
     it('should redeem assets', async () => {
-      await supplyTokenTo(
-        yieldSourceOwner,
-        yieldSourceOwnerBalance,
-        toWei('0'),
-        yieldSourceOwnerBalance,
-      );
-
-      await aToken.mock.balanceOf
-        .withArgs(aaveV3YieldSource.address)
-        .returns(yieldSourceOwnerBalance);
-
-      await pool.mock.withdraw
-        .withArgs(usdcToken.address, redeemAmount, aaveV3YieldSource.address)
-        .returns(redeemAmount);
+      await supplyTokenTo(yieldSourceOwner, yieldSourceOwnerBalance);
 
       await aaveV3YieldSource.connect(yieldSourceOwner).redeemToken(redeemAmount);
 
-      expect(await aaveV3YieldSource.callStatic.balanceOf(yieldSourceOwner.address)).to.equal(
+      expect(await aaveV3YieldSource.balanceOf(yieldSourceOwner.address)).to.equal(
         yieldSourceOwnerBalance.sub(redeemAmount),
       );
     });
@@ -456,19 +450,65 @@ describe('AaveV3YieldSource', () => {
     it('should fail to redeem if amount is greater than balance', async () => {
       const yieldSourceOwnerLowBalance = toWei('10');
 
-      await aaveV3YieldSource.mint(yieldSourceOwner.address, yieldSourceOwnerLowBalance);
-
-      await aToken.mock.balanceOf
-        .withArgs(aaveV3YieldSource.address)
-        .returns(yieldSourceOwnerLowBalance);
-
-      await pool.mock.withdraw
-        .withArgs(usdcToken.address, redeemAmount, aaveV3YieldSource.address)
-        .returns(redeemAmount);
+      await supplyTokenTo(yieldSourceOwner, yieldSourceOwnerLowBalance);
 
       await expect(
         aaveV3YieldSource.connect(yieldSourceOwner).redeemToken(redeemAmount),
       ).to.be.revertedWith('ERC20: burn amount exceeds balance');
+    });
+
+    it('should succeed to manipulate share price but fail to redeem without burning any shares', async () => {
+      const amount = toWei('100000');
+      const attackAmount = BigNumber.from(1);
+      const aTokenAmount = toWei('10000');
+
+      await supplyTokenTo(attacker, attackAmount);
+
+      // Attacker sends 10000 aTokens directly to the contract to manipulate share price
+      await aToken.mint(attacker.address, aTokenAmount);
+      await aToken.connect(attacker).approve(aaveV3YieldSource.address, aTokenAmount);
+      await aToken.connect(attacker).transfer(aaveV3YieldSource.address, aTokenAmount);
+
+      await supplyTokenTo(wallet2, amount);
+
+      const sharePrice = await aaveV3YieldSource.sharesToToken(BigNumber.from(1));
+
+      // Redeem 1 wei less than the full amount of a share to burn 0 share instead of 1 because of rounding error
+      // The actual amount of shares to be burnt should be 0.99 but since Solidity truncates down, it will be 0
+      const attackerRedeemAmount = sharePrice.sub(1);
+
+      await expect(
+        aaveV3YieldSource.connect(attacker).redeemToken(attackerRedeemAmount),
+      ).to.be.revertedWith('AaveV3YS/shares-gt-zero');
+    });
+
+    it('should succeed to manipulate share price but fail to redeem more than deposited', async () => {
+      const amount = toWei('100000');
+      const attackAmount = BigNumber.from(1);
+      const aTokenAmount = toWei('10000');
+
+      await supplyTokenTo(attacker, attackAmount);
+
+      // Attacker sends 10000 aTokens directly to the contract to manipulate share price
+      await aToken.mint(attacker.address, aTokenAmount);
+      await aToken.connect(attacker).approve(aaveV3YieldSource.address, aTokenAmount);
+      await aToken.connect(attacker).transfer(aaveV3YieldSource.address, aTokenAmount);
+
+      await supplyTokenTo(wallet2, amount);
+
+      const sharePrice = await aaveV3YieldSource.sharesToToken(BigNumber.from(1));
+
+      // Redeem 1 wei less than the full amount to burn 1 share instead of 2 because of rounding error
+      // The actual amount of shares to be burnt should be 1.99 but since Solidity truncates down, it will be 1
+      const attackerRedeemAmount = sharePrice.mul(2).sub(1);
+
+      const attackerRedeemShare = await aaveV3YieldSource.tokenToShares(attackerRedeemAmount);
+      const redeemAmount = await aaveV3YieldSource.sharesToToken(attackerRedeemShare);
+
+      await aaveV3YieldSource.connect(attacker).redeemToken(attackerRedeemAmount);
+
+      expect(await usdcToken.balanceOf(attacker.address)).to.equal(redeemAmount);
+      expect(await aaveV3YieldSource.balanceOfToken(attacker.address)).to.equal(Zero);
     });
   });
 
