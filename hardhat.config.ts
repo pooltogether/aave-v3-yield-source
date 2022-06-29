@@ -7,6 +7,7 @@ import 'hardhat-abi-exporter';
 import 'hardhat-deploy';
 import 'hardhat-deploy-ethers';
 import 'hardhat-gas-reporter';
+import 'hardhat-log-remover';
 import 'solidity-coverage';
 
 import { HardhatUserConfig } from 'hardhat/config';
