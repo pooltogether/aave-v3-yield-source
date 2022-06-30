@@ -31,11 +31,11 @@ contract AaveV3YieldSourceHarness is AaveV3YieldSource {
   }
 
   function tokenToShares(uint256 tokens) external view returns (uint256) {
-    return _tokenToShares(tokens);
+    return _tokenToShares(tokens, _pricePerShare());
   }
 
   function sharesToToken(uint256 shares) external view returns (uint256) {
-    return _sharesToToken(shares);
+    return _sharesToToken(shares, _pricePerShare());
   }
 
   function pool() external view returns (IPool) {
