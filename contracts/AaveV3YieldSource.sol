@@ -232,18 +232,15 @@ contract AaveV3YieldSource is ERC20, IYieldSource, Manageable, ReentrancyGuard {
    * @param _to The user whose balance will receive the tokens
    */
   function supplyTokenTo(uint256 _depositAmount, address _to) external override nonReentrant {
-    uint256 _fullShare = _pricePerShare();
-
-    uint256 _shares = _tokenToShares(_depositAmount, _fullShare);
+    uint256 _shares = _tokenToShares(_depositAmount, _pricePerShare());
     _requireSharesGTZero(_shares);
 
-    uint256 _tokenAmount = _sharesToToken(_shares, _fullShare);
-    IERC20(_tokenAddress).safeTransferFrom(msg.sender, address(this), _tokenAmount);
-    _pool().supply(_tokenAddress, _tokenAmount, address(this), REFERRAL_CODE);
+    IERC20(_tokenAddress).safeTransferFrom(msg.sender, address(this), _depositAmount);
+    _pool().supply(_tokenAddress, _depositAmount, address(this), REFERRAL_CODE);
 
     _mint(_to, _shares);
 
-    emit SuppliedTokenTo(msg.sender, _shares, _tokenAmount, _to);
+    emit SuppliedTokenTo(msg.sender, _shares, _depositAmount, _to);
   }
 
   /**
@@ -254,18 +251,14 @@ contract AaveV3YieldSource is ERC20, IYieldSource, Manageable, ReentrancyGuard {
    * @return The actual amount of asset tokens that were redeemed.
    */
   function redeemToken(uint256 _redeemAmount) external override nonReentrant returns (uint256) {
-    uint256 _fullShare = _pricePerShare();
-
-    uint256 _shares = _tokenToShares(_redeemAmount, _fullShare);
+    uint256 _shares = _tokenToShares(_redeemAmount, _pricePerShare());
     _requireSharesGTZero(_shares);
-
-    uint256 _tokenAmount = _sharesToToken(_shares, _fullShare);
 
     _burn(msg.sender, _shares);
 
     IERC20 _assetToken = IERC20(_tokenAddress);
     uint256 _beforeBalance = _assetToken.balanceOf(address(this));
-    _pool().withdraw(_tokenAddress, _tokenAmount, address(this));
+    _pool().withdraw(_tokenAddress, _redeemAmount, address(this));
 
     uint256 _balanceDiff;
 
@@ -275,7 +268,7 @@ contract AaveV3YieldSource is ERC20, IYieldSource, Manageable, ReentrancyGuard {
 
     _assetToken.safeTransfer(msg.sender, _balanceDiff);
 
-    emit RedeemedToken(msg.sender, _shares, _tokenAmount);
+    emit RedeemedToken(msg.sender, _shares, _redeemAmount);
     return _balanceDiff;
   }
 
