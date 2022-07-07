@@ -481,35 +481,6 @@ describe('AaveV3YieldSource', () => {
         aaveV3YieldSource.connect(attacker).redeemToken(attackerRedeemAmount),
       ).to.be.revertedWith('AaveV3YS/shares-gt-zero');
     });
-
-    it('should succeed to manipulate share price but fail to redeem more than deposited', async () => {
-      const amount = toWei('100000');
-      const attackAmount = BigNumber.from(1);
-      const aTokenAmount = toWei('10000');
-
-      await supplyTokenTo(attacker, attackAmount);
-
-      // Attacker sends 10000 aTokens directly to the contract to manipulate share price
-      await aToken.mint(attacker.address, aTokenAmount);
-      await aToken.connect(attacker).approve(aaveV3YieldSource.address, aTokenAmount);
-      await aToken.connect(attacker).transfer(aaveV3YieldSource.address, aTokenAmount);
-
-      await supplyTokenTo(wallet2, amount);
-
-      const sharePrice = await aaveV3YieldSource.sharesToToken(BigNumber.from(1));
-
-      // Redeem 1 wei less than the full amount to burn 1 share instead of 2 because of rounding error
-      // The actual amount of shares to be burnt should be 1.99 but since Solidity truncates down, it will be 1
-      const attackerRedeemAmount = sharePrice.mul(2).sub(1);
-
-      const attackerRedeemShare = await aaveV3YieldSource.tokenToShares(attackerRedeemAmount);
-      const redeemAmount = await aaveV3YieldSource.sharesToToken(attackerRedeemShare);
-
-      await aaveV3YieldSource.connect(attacker).redeemToken(attackerRedeemAmount);
-
-      expect(await usdcToken.balanceOf(attacker.address)).to.equal(redeemAmount);
-      expect(await aaveV3YieldSource.balanceOfToken(attacker.address)).to.equal(Zero);
-    });
   });
 
   describe('claimRewards()', () => {
